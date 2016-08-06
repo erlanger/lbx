@@ -1,0 +1,16 @@
+*~
+*.bak
+*.log
+*.wav
+build
+*.cache
+*.out
+*.beam
+*.o
+*.bin
+.rebar
+erl_crash.dump
+#doc
+.deps
+.deps_plt
+.eunit

@@ -1,8 +1,57 @@
 ;;---------------------------------------------------------------------
+;; Application  macros
+;; 
+;;---------------------------------------------------------------------
+
+(defmacro application (appname topsupervisor opts)
+  "(application <name> <topsup> <opts>)"
+        (let ([r (application-aux appname topsupervisor)])
+         (progn 
+          (if (proplists:get_bool 'print opts)
+           (lfe_io:format "~p~n" (list r)))
+          (lfe_io:format "~p~n" (list (mk-app-file (atom_to_list appname) topsupervisor)))
+          r)))
+
+(eval-when-compile
+  (defun application-aux (appname topsup)
+    (++ '(progn)
+      ;Produce application module
+      (list `(defmodule ,appname
+              (behaviour application)
+              (export (start 2) (stop 1))))
+
+      (list `(defun start (StartType StartArgs)
+              (: ,topsup start_link))
+
+            `(defun stop (State)
+              'ok))))
+
+  (defun mk-app-file (appname-str topsup)
+    (-> "{application, Application,
+         [{description,  Description},
+          {id,           Id},
+          {vsn,          Vsn},
+          {modules,      Modules},
+          {maxP,         MaxP},
+          {maxT,         MaxT},
+          {registered,   Names},
+          {included_applications, Apps},
+          {applications, Apps},
+          {env,          Env},
+          {mod,          Start},
+          {start_phases, Phases},
+          {runtime_dependencies, RTDeps}]}."
+
+        (re:replace "Application" appname-str '(global #(return list)))
+
+        (file:write_file (++ appname-str ".app") (list @))))
+)
+
+; (include-lib "lbebox.lfe") is needed before including this file
+;;---------------------------------------------------------------------
 ;; Supervisor  macros
 ;; 
 ;;---------------------------------------------------------------------
-; (include-lib "lbebox.lfe") is needed before including this file
 
 ;init returns {ok,  #{strategy  => one_for_one|one_for_all*|rest_for_one|simple_for_one,
 ;                     intensity => 5* integer() >= 0,
@@ -86,7 +135,7 @@
 
   ;Make supervisor modules for children supervisors
   (defun mk-children (children opts0)
-    `,(lists:foldl (match-lambda
+    `,(-> (lists:foldl (match-lambda
                  ;worker child does not generate modules
                  ([(cons 'worker rest) acc]
                    acc)
@@ -107,7 +156,8 @@
                ()
                (lists:map (lambda (e)
                             (mk-five e))
-                          children)))
+                          children))
+          (lists:reverse)))
   
 
   (defun supervisor-aux (supname children supconfig opts0)
@@ -345,7 +395,7 @@
         (list 'defun 'init '(Args)
           (lists:nth 2 (hd (filter-on-1st 'init api))))
         (list 'defun 'init '(Args)
-          (progn 
+          '(progn 
             (spray_api)
             #(ok ()))))))
 

@@ -3,7 +3,7 @@
 
 ;An exmaple of a gen_server and its api generated bu mk-genserver
 ;This creates the doors module and the doors_api module
-(mk-genserver doors 
+(genserver doors 
   ((state-match (tuple roomstate roomkeys))
   (call open (door) (open door () roomstate roomkeys State))
   (call open (door key) (open door key roomstate roomkeys State))

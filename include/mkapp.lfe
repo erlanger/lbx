@@ -1,20 +1,144 @@
 ;;---------------------------------------------------------------------
-;; Genserver  macros
+;; Supervisor  macros
 ;; 
 ;;---------------------------------------------------------------------
 ; (include-lib "lbebox.lfe") is needed before including this file
-(defmacro genserverpr arg
-;FIXME
-  (lfe_io:format "~p\n" (list (genserver arg))))
 
-(defmacro mk-genserver args
+;init returns {ok,  #{strategy  => one_for_one|one_for_all*|rest_for_one|simple_for_one,
+;                     intensity => 5* integer() >= 0,
+;                        period => 10* integer() >= 1} , Children}
+
+;Children= [  
+;#{id       := term(),
+;  start    := {M,F,A},
+;  restart  => permanent*|transient|temporary,
+;  shutdown => brutal_kill | 5000* if worker, infinity* if supervisor Timeout:(integer or infinity),
+;  type     => worker*|supervisor,
+;  modules  => [module() M*]|dynamic }
+;
+
+(defmacro supervisor args 
+  "(supervisor <name> 
+               (;worker child 
+                (worker <child-name> start #(<child-name> start_link ()) 
+                  restart permanent shutdown 5000 modules (<child-name>))
+
+                ;supervisor child with default parameters
+                (supervisor <child-name> <strategy> <children>)
+
+                ;supervisor child with parameters
+                (supervisor (<child-name> start #(<child-name> start_link ()) 
+                  restart permanent shutdown infinity modules (<child-name>)) <strategy> <children>))
+
+                (strategy one_for_all intensity 5 period 10) ;supervisor config
+                (<options>: [print])
+               )"
+
+  (case (mk-four args)
+    ;supname is an atom
+    ([supname children supconfig opts] 
+      (when (progn (is_list supconfig) (is_list children) (is_atom supname))) 
+        (let ([r (supervisor-aux supname children supconfig opts)])
+         (progn 
+          (if (proplists:get_bool 'print opts)
+           (lfe_io:format "~p~n" (list r)))
+          r)))))
+
+(eval-when-compile
+  ;return list with all elements quotes
+  (defun quote-list (lst)
+    (lists:map (lambda (e)
+                 `(quote ,e))
+               lst))
+
+  ;build strategy, intensity, period map
+  (defun get-supconfig (supconfig)
+    `(map ,@(quote-list supconfig)))
+
+  ;make child entry for children array
+  (defun mk-child (type name spec)
+    (if (lists:member 'start spec)
+     ;start key already present
+     `(map 'type ',type 'id ,name ,@(quote-list spec))
+     ;build start key
+     `(map 'type ',type 'id ',name
+        'start ,(tuple name 'start_link ()) 
+        ,@(quote-list spec))))
+
+  ;make children array for init()
+  (defun get-children (children)
+    `(list ,@(lists:map (match-lambda
+                 ;worker child
+                 ([(cons 'worker rest)]
+                   (mk-child 'worker (hd rest) (tl rest)))
+
+                 ;supervisor child without child spec
+                 ([(cons 'supervisor (cons name _))]
+                  (when (is_atom name))
+                   (mk-child 'supervisor name ()))
+
+                 ;supervisor child with child spec
+                 ([(cons 'supervisor (cons spec-and-name _))]
+                  (when (is_list spec-and-name))
+                   (mk-child 'supervisor (hd spec-and-name) (tl spec-and-name)))
+               )
+               children)))
+
+  ;Make supervisor modules for children supervisors
+  (defun mk-children (children opts0)
+    `,(lists:foldl (match-lambda
+                 ;worker child does not generate modules
+                 ([(cons 'worker rest) acc]
+                   acc)
+
+                 ;supervisor child without child spec - generate module
+                 ([(list 'supervisor name children supconfig opts) acc]
+                  (when (is_atom name))
+                   (cons 
+                     `(supervisor ,name ,children ,supconfig ,opts0)
+                     acc))
+
+                 ;supervisor child with child spec - generate module
+                 ([(list 'supervisor spec-and-name children supconfig opts) acc]
+                  (when (is_list spec-and-name))
+                   (cons 
+                     `(supervisor ,(hd spec-and-name) ,children ,supconfig ,opts0)
+                     acc)))
+               ()
+               (lists:map (lambda (e)
+                            (mk-five e))
+                          children)))
+  
+
+  (defun supervisor-aux (supname children supconfig opts0)
+    (++ '(progn)
+      ;Produce supervisor module
+      (list `(defmodule ,supname
+              (behaviour supervisor)
+              (export (start_link 0) (init 1))))
+
+      (list `(defun start_link ()
+               (supervisor:start_link #(local ,supname) ',supname ()))
+
+            `(defun init (Args)
+               (tuple 'ok (tuple ,(get-supconfig supconfig) ,(get-children children)))))
+
+      (mk-children children opts0)))
+)
+
+;;---------------------------------------------------------------------
+;; Genserver  macros
+;; 
+;;---------------------------------------------------------------------
+
+(defmacro genserver args
   "(genserver <srvname> <api> [opts] [rst])
    <srvname> is a symbol. the server name
    <api> is a list of call,cast,cast-match,call-match,trigger, trigger-all and maybe one state-match
    <opts> list of global|local|gproc|#(gproc <gprockey>)
           and/or print,trigger_debug,#(api-module <modname>)
    <rst> optional. Additional function definitions"
-      (let* ([(list srvname api opts rst) (parse-args args)]
+      (let* ([(list srvname api opts rst) (mk-four args)]
              (r   (genserver-aux__ srvname api opts rst)))
         (progn 
           (if (proplists:get_bool 'print opts)
@@ -53,10 +177,16 @@
   ;four are provided, pad with empty lists.
   ;used in the genserver macro to 
   ;prevent using a large case statement.
-  (defun parse-args 
+  (defun mk-four
     ([(list one two three four)] (list one two three four))
     ([(list one two three)]      (list one two three () ))
     ([(list one two)]            (list one two () () )))
+
+  (defun mk-five 
+    ([(list one two three four five)] (list one two three four five))
+    ([(list one two three four)]      (list one two three four ()))
+    ([(list one two three)]           (list one two three () ()))
+    ([(list one two)]                 (list one two () () ())))
 
   ;make the necessary body code for the handle_* functions
   ;including trigger code if necessary.
@@ -435,7 +565,7 @@
   ;and all the necessary functions.
   (defun genserver-aux__ (srvname api opts rst)
     (++ '(progn)
-      ;Build api module
+      ;Produce api module
       (list `(defmodule ,(get-api-modname srvname opts) 
               ,(mk-export api opts rst)
               ;(export all)
@@ -443,6 +573,7 @@
       (mk-apimod-funs srvname 'call api opts)
       (mk-apimod-funs srvname 'cast api opts)
 
+      ;Produce genserver module
       (list `(defmodule ,srvname 
               (behaviour gen_server)
               (export (code_change 3)

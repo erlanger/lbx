@@ -14,3 +14,4 @@ erl_crash.dump
 .deps
 .deps_plt
 .eunit
+.swp

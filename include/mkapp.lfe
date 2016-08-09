@@ -9,7 +9,7 @@
          (progn 
           (if (proplists:get_bool 'print opts)
            (lfe_io:format "~p~n" (list r)))
-          (mk-app-file (atom_to_list appname) topsupervisor)
+          ;(mk-app-file (atom_to_list appname) topsupervisor)
           r)))
 
 (eval-when-compile
@@ -269,7 +269,7 @@
                     (tuple 
                      ',type 
                      ,apiname 
-                     State 
+                     State__
                      (get-state-from-result ',type r-aux__) 
                      r-aux__
                      request))))
@@ -285,20 +285,20 @@
            ,(get-body api 'call `',name body)))
     ;match-state from 'call element
     ([(list 'call name args match-state body) _ api] (when (is_list args))
-      `([(= request (tuple ',name ,@args)) From (= State ,match-state)] 
+      `([(= request (tuple ',name ,@args)) From (= State__ ,match-state)] 
            ,(get-body api 'call `',name body)))
     ;match-msg, match-from and match-state from 'call element
     ([(list 'call-match match-msg match-from match-state body) _ api] 
-      `([(= request ,match-msg) ,match-from (= State ,match-state)] 
+      `([(= request ,match-msg) ,match-from (= State__ ,match-state)] 
            ,(get-body api 'call `,match-msg body))))
 
   ;Default clause for unkown call, return
   ;#(reply #(badcall Request) State)
   (defun mk-hca-def-clause ()
-    `([Request From State] 
+    `([Request From State__] 
         (tuple 'reply 
           (tuple 'badcall Request)
-          State)))
+          State__)))
 
   ;make the clauses and the body for the handle_cast functions
   (defun mk-hct-clause 
@@ -321,12 +321,12 @@
   ;return #(noreply State)
   ;and log warning
   (defun mk-hct-def-clause (srvname)
-    `([Request State] 
+    `([Request State__] 
         (progn
           (error_logger:warning_msg 
             "     ~s: Unknown cast '~p'" 
             (list ',srvname Request))
-          (tuple 'noreply State))))
+          (tuple 'noreply State__))))
 
   ;make the clauses and the body for the handle_call functions
   (defun mk-hci-clause 
@@ -345,12 +345,12 @@
   ;return #(noreply State)
   ;and log warning
   (defun mk-hci-def-clause (srvname)
-    `([Msg State] 
+    `([Msg State__] 
         (progn
           (error_logger:warning_msg 
             "     ~s: Unknown msg '~p'" 
             (list ',srvname Msg))
-          (tuple 'noreply State))))
+          (tuple 'noreply State__))))
 
   ; produce all necessary handle_call functions, e.g.:
   ;(mk-handle_calls '((call open (door key) (+ door key))
@@ -415,7 +415,7 @@
       (if (any 'terminate api)
         (list 'defun 'terminate `([reason ,(get-match-state-aux__ api)]
           ,(lists:nth 2 (hd (filter-on-1st 'terminate api)))))
-        (list 'defun 'terminate '(Reason State)
+        (list 'defun 'terminate '(Reason State__)
           #(ok)))))
 
   ;Group calls by name and number of arguments in the call
@@ -477,8 +477,8 @@
   ;the 'state-match ;element in the api description
   (defun get-match-state-aux__ (api)
     (if (any 'state-match api)
-      `(= State ,(lists:nth 2 (hd (filter-on-1st 'state-match api))))
-      'State))
+      `(= State__ ,(lists:nth 2 (hd (filter-on-1st 'state-match api))))
+      'State__))
 
   ;Get api module name from #(api-module <name>) in opts or 
   ; return <srvname>_api
@@ -646,6 +646,8 @@
                       (spray_api 0)
               )))
  
+      (list '(defmacro state () 'State__))
+
       (mk-start-link api opts)
  
       ;We use ++ so that if any of these functions return an empty
@@ -664,8 +666,8 @@
       ;code_change fun if it has not been specified by user in rst
       (if (any-fun 'code_change rst)
         ()
-        (list `(defun code_change (oldvsn State Extra)
-                (tuple 'ok State))))
+        (list `(defun code_change (oldvsn State__ Extra)
+                (tuple 'ok State__))))
 
       (if (any-fun 'spray_api rst)
         ()

@@ -1,7 +1,7 @@
 (defmodule lbx
  (export all))
 
-(include-lib "include/lfebox.lfe")
+(include-lib "lfebox.lfe")
 
 ;if x is a #(ok Result) tuple return Result,
 ;otherwise error out of the process with x

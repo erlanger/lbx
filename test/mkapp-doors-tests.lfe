@@ -5,18 +5,18 @@
 ;This creates the doors module and the doors_api module
 (genserver doors 
   ((state-match (tuple roomstate roomkeys))
-  (call open (door) (open door () roomstate roomkeys State))
-  (call state (door) `#(reply ,(maps:get door roomstate) ,State))
-  (call open (door key) (open door key roomstate roomkeys State))
+  (call open (door) (open door () roomstate roomkeys (state)))
+  (call state (door) `#(reply ,(maps:get door roomstate) ,(state)))
+  (call open (door key) (open door key roomstate roomkeys (state)))
   ;(call-match (tuple 'close door) pid 'one_closed (close (+ 1 door)))
   (call close (door) 
-      `#(reply ok ,(upd-door State door 'closed)))
+      `#(reply ok ,(upd-door (state) door 'closed)))
   (cast kick (door) 
     (progn 
       (timer:apply_after 5000 'doors_api 'repair (list door))
-      `#(noreply ,(upd-door State door 'kicked))))
+      `#(noreply ,(upd-door (state) door 'kicked))))
   (cast repair (door) 
-      `#(noreply ,(upd-door State door 'open)))
+      `#(noreply ,(upd-door (state) door 'open)))
   ;(info (tuple 'close door) (close door))
   (init `#(ok ,(tuple 
                 #M(1 open 2 closed 3 open 4 open) 
@@ -84,21 +84,24 @@
 
 (deftestcase open-door-api (sres)
  (tuple "open3" (is-equal 'already_open (doors_api:open 3)))
- (tuple "open2" (is-equal 'ok (doors_api:open 2)))
- )
+ (tuple "open2" (is-equal 'ok (doors_api:open 2))))
 
 (deftestcase open-door-w-key-api (sres)
  (is-equal 'already_open  (doors_api:open 1))
  (is-equal 'ok  (doors_api:close 1))
  (is-equal 'needs_key  (doors_api:open 1 000))
- (is-equal 'ok  (doors_api:open 1 345))
- )
+ (is-equal 'ok  (doors_api:open 1 345)))
 
 (deftestcase kick-api (sres)
  (is-equal 'ok  (doors_api:kick 2))
  (is-equal 'kicked (doors_api:state 2))
- (is-equal 'closed (? 5000 (doors_api:state 2))) 
- )
+ ;wait until door is repaired by trigger
+ (is-equal 'closed (? 5100 (doors_api:state 2)))
+ (is-equal 'dummy (? 1100 'dummy)))
+
+(deftestcase close-api (sres)
+ (is-equal 'ok  (doors_api:close 2))
+ (is-equal 'ok (doors_api:close 1)))
 
 (deftestgen setup-setup-cleanup
   `#(foreach
@@ -107,5 +110,6 @@
      ,(deftestcases 
          open-door-api 
          open-door-w-key-api
-         kick-api)))
+         kick-api
+         close-api)))
 

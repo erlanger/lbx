@@ -9,7 +9,7 @@
          (progn 
           (if (proplists:get_bool 'print opts)
            (lfe_io:format "~p~n" (list r)))
-          (lfe_io:format "~p~n" (list (mk-app-file (atom_to_list appname) topsupervisor)))
+          (mk-app-file (atom_to_list appname) topsupervisor)
           r)))
 
 (eval-when-compile
@@ -26,23 +26,33 @@
             `(defun stop (State)
               'ok))))
 
+   ; make app file
+   ; .app file format:
+   ;"{application, Application,
+   ;    [{description,  \"Description\"},
+   ;     {id,           \"Id\"},
+   ;     {vsn,          Vsn},
+   ;     {modules,      Modules},
+   ;     {maxP,         MaxP},
+   ;     {maxT,         MaxT},
+   ;     {registered,   Names},
+   ;     {included_applications, Apps},
+   ;     {applications, [kernel, stdlib, sasl]},
+   ;     {env,          Env},
+   ;     {mod,          {mod, Application, []},
+   ;     {start_phases, Phases},
+   ;     {runtime_dependencies, RTDeps}]}."
   (defun mk-app-file (appname-str topsup)
     (-> "{application, Application,
-         [{description,  Description},
-          {id,           Id},
-          {vsn,          Vsn},
-          {modules,      Modules},
-          {maxP,         MaxP},
-          {maxT,         MaxT},
-          {registered,   Names},
-          {included_applications, Apps},
-          {applications, Apps},
-          {env,          Env},
-          {mod,          Start},
-          {start_phases, Phases},
-          {runtime_dependencies, RTDeps}]}."
+         [{description,  \"Description\"},
+          {id,           \"Id\"},
+          {vsn,          \"Vsn\"},
+          {mod,          {Application, []}}
+          ]}."
 
         (re:replace "Application" appname-str '(global #(return list)))
+        (re:replace "Vsn" 
+		    (str-chop (os:cmd "git describe --tags --always")) '(global #(return list)))
 
         (file:write_file (++ appname-str ".app") (list @))))
 )
@@ -660,7 +670,7 @@
       (if (any-fun 'spray_api rst)
         ()
         (list `(defun spray_api ()
-                (tonodes ',(get-api-modname srvname opts)))))
+                (lbx:tonodes ',(get-api-modname srvname opts)))))
 
       ;Used by triggers - auxiliary function
       (mk-get-state-from-result srvname api opts)

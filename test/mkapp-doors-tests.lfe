@@ -6,6 +6,7 @@
 (genserver doors 
   ((state-match (tuple roomstate roomkeys))
   (call open (door) (open door () roomstate roomkeys State))
+  (call state (door) `#(reply ,(maps:get door roomstate) ,State))
   (call open (door key) (open door key roomstate roomkeys State))
   ;(call-match (tuple 'close door) pid 'one_closed (close (+ 1 door)))
   (call close (door) 
@@ -51,13 +52,60 @@
   (if (== 'error (maps:find door rk))
    ;no need for key
    (case (maps:get door rs)
-     ('open (tuple 'reply 'alreay_open State))
+     ('open (tuple 'reply 'already_open State))
      ('closed (tuple 'reply 'ok (upd-door State door 'open))))
    ;door needs key
    (case (maps:get door rs)
-     ('open (tuple 'reply 'alreay_open State))
+     ('open (tuple 'reply 'already_open State))
      ('closed
       (if (== key (maps:get door rk 'none))
         (tuple 'reply 'ok (upd-door State door 'open))
         (tuple 'reply 'needs_key State))))))
+
+(defmodule mkapp-doors-tests
+ (behaviour ltest-unit)
+ (export all)
+ (import
+  (from ltest
+   (check-failed-is 2)
+   (check-wrong-is-exception 2))))
+
+(include-lib "ltest/include/ltest-macros.lfe")
+
+(defun set-up () (doors:start_link))
+
+(defun tear-down (set-up-result) (gen_server:stop #(global doors)))
+
+(deftest start-genserver 
+ (is-match (tuple 'ok _) (set-up)))
+
+(deftest stop-genserver
+ (is-match 'ok (tear-down 'ok)))
+
+(deftestcase open-door-api (sres)
+ (tuple "open3" (is-equal 'already_open (doors_api:open 3)))
+ (tuple "open2" (is-equal 'ok (doors_api:open 2)))
+ )
+
+(deftestcase open-door-w-key-api (sres)
+ (is-equal 'already_open  (doors_api:open 1))
+ (is-equal 'ok  (doors_api:close 1))
+ (is-equal 'needs_key  (doors_api:open 1 000))
+ (is-equal 'ok  (doors_api:open 1 345))
+ )
+
+(deftestcase kick-api (sres)
+ (is-equal 'ok  (doors_api:kick 2))
+ (is-equal 'kicked (doors_api:state 2))
+ (is-equal 'closed (? 5000 (doors_api:state 2))) 
+ )
+
+(deftestgen setup-setup-cleanup
+  `#(foreach
+     ,(defsetup set-up)
+     ,(defteardown tear-down)
+     ,(deftestcases 
+         open-door-api 
+         open-door-w-key-api
+         kick-api)))
 

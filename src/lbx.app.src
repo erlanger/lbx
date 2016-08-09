@@ -1,0 +1,9 @@
+{application, lbx,
+         [{description,  "Easily make gen_servers, supervision trees, and other utility macros"},
+          {vsn,          git},
+          {mod,          {lbx, []}},
+           {modules,
+              [
+                  lbx
+              ]}
+          ]}.

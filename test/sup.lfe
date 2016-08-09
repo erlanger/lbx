@@ -1,7 +1,7 @@
 (include-lib "../include/lfebox.lfe")
 (include-lib "../include/mkapp.lfe")
 
-(application myapp mysup (print))
+(application myapp mysup (print (description "Test app")))
 
 (supervisor mysup 
             (;(worker wrk1 restart temporary)
@@ -14,6 +14,11 @@
             (print))
 
 (genserver wrk31 
-  ((call who () #(reply "I am wrk31~n" State))))
+  ((call who () #(reply "I am wrk31~n" State)))
+  (global)
+)
+
 (genserver wrk32 
-  ((call who () #(reply "I am wrk32~n" State))))
+  ((call who () #(reply "I am wrk32~n" State)))
+  (global)
+)

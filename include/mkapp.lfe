@@ -3,14 +3,19 @@
 ;; 
 ;;---------------------------------------------------------------------
 
-(defmacro application (appname topsupervisor opts)
-  "(application <name> <topsup> <opts>)"
-        (let ([r (application-aux appname topsupervisor)])
-         (progn 
-          (if (proplists:get_bool 'print opts)
-           (lfe_io:format "~p~n" (list r)))
-          ;(mk-app-file (atom_to_list appname) topsupervisor)
-          r)))
+(defmacro application 
+  "(application <name> <topsup> <opts>)
+   (application <name> <topsup>)"
+  ([appname topsupervisor opts]
+    (let ([r (application-aux appname topsupervisor)])
+     (progn 
+      (if (proplists:get_bool 'print opts)
+       (lfe_io:format "~p~n" (list r)))
+      ;(mk-app-file (atom_to_list appname) topsupervisor)
+      r)))
+
+   ([appname topsupervisor]
+     (application-aux appname topsupervisor)))
 
 (eval-when-compile
   (defun application-aux (appname topsup)

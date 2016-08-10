@@ -15,6 +15,8 @@
   (call close (door) 
       `#(reply ok ,(upd-door (state) door 'closed)))
   (cast kick (door) 
+   "Kicks the door setting its state to 'kicked. Sets timer for door
+    to be repaired in 5 secs."
     (progn 
       (timer:apply_after 5000 'doors_api 'repair (list door))
       `#(noreply ,(upd-door (state) door 'kicked))))

@@ -334,7 +334,7 @@
     ;with doc-strings
     ([(list 'cast name args doc body) match-state api] (when (is_list args))
       `([(= request (tuple ',name ,@args)) ,match-state] 
-           ,(get-body api 'cast `',name doc body)))
+           ,(get-body api 'cast `',name body)))
            )
 
   ;Default clause for unkown cast

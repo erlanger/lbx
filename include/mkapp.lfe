@@ -422,14 +422,14 @@
       ))
 
   ; produce gen_server init function
-  (defun mk-init (api)
+  (defun mk-init (srvname api opts)
     (list 
       (if (any 'init api)
         (list 'defun 'init '(Args)
           (lists:nth 2 (hd (filter-on-1st 'init api))))
         (list 'defun 'init '(Args)
-          '(progn 
-            (spray_api)
+          `(progn 
+            (: ,(get-api-modname srvname opts) spray_api)
             #(ok ()))))))
 
   ; produce gen_server terminate function
@@ -644,6 +644,7 @@
     (if (or (any 'call api) 
             (any 'cast api))
       `(export
+         (spray_api 0)
         ,@(lists:map 
           (match-lambda
            ([(tuple name noargs)]
@@ -689,7 +690,6 @@
                       (init 1)
                       (terminate 2)
                       (start_link 0)
-                      (spray_api 0)
               )))
  
       (list '(defmacro state () 'State__))
@@ -700,7 +700,7 @@
       ;list they will dissapear in the final result
       ;This also requires that the previous elements be wrapped in a
       ;list
-      (mk-init api)
+      (mk-init srvname api opts)
       (mk-terminate api)
       (mk-handle_calls api)
       (mk-handle_casts srvname api)

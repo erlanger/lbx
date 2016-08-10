@@ -2,7 +2,6 @@
  [{description, "Easily make gen_servers, supervision trees, and other utility macros"},
    {vsn, git},
    {registered, []},
-   {mod, { lbx, []}},
    {applications,
       [kernel,
        stdlib,

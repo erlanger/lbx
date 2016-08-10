@@ -658,11 +658,26 @@
     (++ '(progn)
       ;Produce api module
       (list `(defmodule ,(get-api-modname srvname opts) 
+               "This is the API module, it contains the user visible callable
+                functions, which are generally calls or casts. The global or gproc
+                option needs to be specified in order for the functions to work
+                across nodes through a network connection."
               ,(mk-export api opts rst)
               ;(export all)
               ))
       (mk-apimod-funs srvname 'call api opts)
       (mk-apimod-funs srvname 'cast api opts)
+
+      ;function to send api module to all connected nodes
+      (if (any-fun 'spray_api rst)
+        ()
+        (list `(defun spray_api ()
+                "Send the code of this api module to all the connected nodes.
+                 This makes it easy for a client in another node to have access
+                 to the api. The generated api functions can call across the network
+                 if the global or gproc options are used to register the _genserver_."
+                (lbx:tonodes ',(get-api-modname srvname opts)))))
+
 
       ;Produce genserver module
       (list `(defmodule ,srvname 
@@ -699,11 +714,6 @@
         ()
         (list `(defun code_change (oldvsn State__ Extra)
                 (tuple 'ok State__))))
-
-      (if (any-fun 'spray_api rst)
-        ()
-        (list `(defun spray_api ()
-                (lbx:tonodes ',(get-api-modname srvname opts)))))
 
       ;Used by triggers - auxiliary function
       (mk-get-state-from-result srvname api opts)

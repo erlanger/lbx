@@ -1,9 +1,16 @@
 {application, lbx,
-         [{description,  "Easily make gen_servers, supervision trees, and other utility macros"},
-          {vsn,          git},
-          {mod,          {lbx, []}},
-           {modules,
-              [
-                  lbx
-              ]}
-          ]}.
+ [{description, "Easily make gen_servers, supervision trees, and other utility macros"},
+   {vsn, git},
+   {registered, []},
+   {mod, { lbx, []}},
+   {applications,
+      [kernel,
+       stdlib,
+       lfe
+      ]},
+   {env,[]},
+   {modules, []},
+   {maintainers, []},
+   {licenses, ["MIT"]},
+   {links, []}
+  ]}.

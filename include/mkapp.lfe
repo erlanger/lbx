@@ -255,11 +255,11 @@
 
   ;make the necessary body code for the handle_* functions
   ;including trigger code if necessary.
-  (defun get-body (api type apiname body)
-    (if (or (any-two 'trigger apiname api)
-            (any 'trigger-all api))
-      (mk-trigger-code type apiname body)
-      body))
+  (defun get-body (apilst type apiname body)
+      (if (or (any-two 'trigger apiname apilst)
+              (any 'trigger-all apilst))
+        (mk-trigger-code type apiname body)
+        body))
 
   ;make the trigger code, which spawns a process
   ;which calls the run-triggers function at run-time
@@ -289,13 +289,22 @@
       `([(= request (tuple ',name ,@args)) From ,match-state] 
            ,(get-body api 'call `',name body)))
     ;match-state from 'call element
-    ([(list 'call name args match-state body) _ api] (when (is_list args))
+    ([(list 'call-match-1 name args match-state body) _ api] (when (is_list args))
       `([(= request (tuple ',name ,@args)) From (= State__ ,match-state)] 
            ,(get-body api 'call `',name body)))
     ;match-msg, match-from and match-state from 'call element
-    ([(list 'call-match match-msg match-from match-state body) _ api] 
+    ([(list 'call-match-3 match-msg match-from match-state body) _ api] 
       `([(= request ,match-msg) ,match-from (= State__ ,match-state)] 
-           ,(get-body api 'call `,match-msg body))))
+           ,(get-body api 'call `,match-msg body)))
+    ;;;;;
+    ; Same but with docstrings
+    ([(list 'call name args doc body) match-state api] (when (is_list args))
+      `([(= request (tuple ',name ,@args)) From ,match-state] 
+           ,(get-body api 'call `',name body)))
+    ;match-state from 'call element
+    ([(list 'call-match-1 name args match-state doc body) _ api] (when (is_list args))
+      `([(= request (tuple ',name ,@args)) From (= State__ ,match-state)] 
+           ,(get-body api 'call `',name body))))
 
   ;Default clause for unkown call, return
   ;#(reply #(badcall Request) State)
@@ -313,14 +322,20 @@
       `([(= request (tuple ',name ,@args)) ,match-state] 
            ,(get-body api 'cast `',name body)))
     ;match-state from 'cast element
-    ([(list 'cast name args match-state body) _ api] (when (is_list args))
+    ([(list 'cast-match-1 name args match-state body) _ api] (when (is_list args))
       `([(= request (tuple ',name ,@args)) ,match-state] 
            ,(get-body api 'cast `',name body)))
     ;match-request and match-state from 'cast element
-    ([(list 'cast-match match-request match-state body) _ api] 
+    ([(list 'cast-match-2 match-request match-state body) _ api] 
         (when (and (is_list args) (is_list match-state)))
       `([(= request ,match-request) ,match-state] 
-           ,(get-body api 'cast `,match-request body))))
+           ,(get-body api 'cast `,match-request body)))
+          
+    ;with doc-strings
+    ([(list 'cast name args doc body) match-state api] (when (is_list args))
+      `([(= request (tuple ',name ,@args)) ,match-state] 
+           ,(get-body api 'cast `',name doc body)))
+           )
 
   ;Default clause for unkown cast
   ;return #(noreply State)
@@ -367,11 +382,13 @@
   ;    (((tuple 'close door key) From State) (- door key)))
   (defun mk-handle_calls (api)
     (if (or (any 'call api) 
-            (any 'call-match api))
+            (or (any 'call-match-1 api)
+                (any 'call-match-3 api)))
       (list (cons 'defun (cons 'handle_call 
         (++ (lists:map (lambda (e)
                          (mk-hca-clause e (get-match-state-aux__ api) api))
-                       (++ (filter-on-1st 'call-match api)
+                       (++ (filter-on-1st 'call-match-3 api)
+                           (filter-on-1st 'call-match-1 api)
                            (filter-on-1st 'call api)))
             (list (mk-hca-def-clause))))))
       (list (cons 'defun (cons 'handle_call 
@@ -380,11 +397,12 @@
   
   ; produce all necessary handle_cast functions, e.g.:
   (defun mk-handle_casts (srvname lst)
-    (if (any 'cast lst)
+    (if (or (any 'cast lst)
+            (any 'cast-match-1 lst))
       (list (cons 'defun (cons 'handle_cast 
         (++ (lists:map (lambda (e)
                          (mk-hct-clause e (get-match-state-aux__ api) api))
-                       (++ (filter-on-1st 'cast-match api)
+                       (++ (filter-on-1st 'cast-match-1 api)
                            (filter-on-1st 'cast api)))
             (list (mk-hct-def-clause srvname))))))
       (list (cons 'defun (cons 'handle_cast 
@@ -430,6 +448,10 @@
                    ([(list type name args body) dict]
                      (orddict:append (tuple name (length args))
                                      (list type name args body)
+                                     dict))
+                   ([(list type name args doc body) dict]
+                     (orddict:append (tuple name (length args))
+                                     (list type name args doc body)
                                      dict)))
                  (orddict:new)
                  (filter-on-1st type api)))
@@ -437,11 +459,15 @@
   ;produce clauses and body for the functions that
   ;go into the separate api module
   (defun mk-api-clauses (srvname type name arity opts dict)
-    (lists:map 
+    (lists:foldl 
       (match-lambda 
-        ([(list type name args body)]
-          (list args 
-            `(: gen_server ,type ,(get-reg-name srvname opts) (tuple ',name ,@args)))))
+        ([(list type name args body) acc]
+          (list (++ acc (list args 
+            `(: gen_server ,type ,(get-reg-name srvname opts) (tuple ',name ,@args))))))
+        ([(list type name args doc body) acc]
+          (cons doc (list (++ acc (list args 
+            `(: gen_server ,type ,(get-reg-name srvname opts) (tuple ',name ,@args))))))))
+      ()
       (orddict:fetch 
         (tuple name arity)
         dict))) 

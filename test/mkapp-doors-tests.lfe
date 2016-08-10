@@ -5,10 +5,13 @@
 ;This creates the doors module and the doors_api module
 (genserver doors 
   ((state-match (tuple roomstate roomkeys))
-  (call open (door) (open door () roomstate roomkeys (state)))
+  (call open (door) 
+   "Open the specified door, without a key."
+    (open door () roomstate roomkeys (state)))
   (call state (door) `#(reply ,(maps:get door roomstate) ,(state)))
   (call open (door key) (open door key roomstate roomkeys (state)))
-  ;(call-match (tuple 'close door) pid 'one_closed (close (+ 1 door)))
+  (call-match-3 (tuple 'close door) pid 'one_closed 
+      `#(reply ok ,(upd-door (state) door 'closed)))
   (call close (door) 
       `#(reply ok ,(upd-door (state) door 'closed)))
   (cast kick (door) 

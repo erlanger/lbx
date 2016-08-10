@@ -1,4 +1,4 @@
-(include-lib "../include/lfebox.lfe")
+(include-lib "../include/lbx.lfe")
 (include-lib "../include/mkapp.lfe")
 
 (application myapp mysup (print (description "Test app")))

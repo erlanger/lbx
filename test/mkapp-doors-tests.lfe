@@ -1,4 +1,4 @@
-(include-lib "../include/lfebox.lfe")
+(include-lib "../include/lbx.lfe")
 (include-lib "../include/mkapp.lfe")
 
 ;An exmaple of a gen_server and its api generated bu mk-genserver

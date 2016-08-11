@@ -347,8 +347,8 @@
 (defmacro CBIc () "\e[0;106m")
 (defmacro CBIw () "\e[0;107m")
 
-(defun color-aux__ (string)
-   (-> string 
+(defmacro color-aux__ (string)
+   `(-> ,string 
 
        (re:replace "\\^l\\^" (Cl) '(global #(return list)))
        (re:replace "\\^r\\^" (Cr) '(global #(return list)))
@@ -428,11 +428,14 @@
        (re:replace "\\^(\\d+),(\\d+)pos\\^" "\e[\\1;\\2H" '(global #(return list)))
 
        ;Reset attributes at end of string
-       (++ (Crst))
+       (if (== 'nomatch (re:run ,string "\\^.{1,3}\\^"))
+         @
+         (++ @ (Crst)))
    ))
 
-(defmacro C (string)
-  (color-aux__ string))
+(defmacro fmt 
+  ([str args] (when (is_list str))
+  `(lists:flatten (io_lib:format `(,@(color-aux__ ,str)) ,args))))
 
 (defun format (fstr args)
   (lfe_io:format (color-aux__ fstr) args))

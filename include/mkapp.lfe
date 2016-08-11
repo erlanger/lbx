@@ -678,8 +678,8 @@
       (list `(defmodule ,(get-api-modname srvname opts) 
                "This is the API module, it contains the user visible callable
                 functions, which are generally calls or casts. The global or gproc
-                option needs to be specified in order for the functions to work
-                across nodes through a network connection."
+                option of the `genserver` macro needs to be specified in order 
+                for the functions to work across nodes through a network connection."
               ,(mk-export api opts rst)
               ;(export all)
               ))

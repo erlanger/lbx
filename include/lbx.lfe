@@ -442,3 +442,21 @@
 
 (defun format (fstr)
   (io:format (color-aux__ fstr) () ))
+
+;*************************************************************************
+;*************************************************************************
+; Node/network macros 
+;*************************************************************************
+;*************************************************************************
+
+;This is defined as a macro so that when called there are no dependencies
+;on external modules
+(defmacro tonodes (module)
+  "Send module to all the connected nodes."
+  `(if (not (code:is_sticky ,module))
+    (let (((tuple mod1 bin file) 
+            ;; Find object code for module Mod
+            (code:get_object_code ,module)))
+      ;; and load it on all nodes if not already loaded 
+      (rpc:multicall (nodes) 'code 'load_binary (list mod1 file bin)))))
+

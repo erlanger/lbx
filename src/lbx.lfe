@@ -84,15 +84,6 @@
 ; Pool setup/nodes
 ;*************************************************************************
 ;*************************************************************************
-(defun tonodes (module)
-  "Send module to all the connected nodes."
-  (if (not (code:is_sticky module))
-    (let (((tuple mod1 bin file) 
-            ;; Find object code for module Mod
-            (code:get_object_code module)))
-      ;; and load it on all nodes if not already loaded 
-      (rpc:multicall (nodes) 'code 'load_binary (list mod1 file bin)))))
-
 (defun tonodes-unused (module)
   (let (((tuple mod1 bin file ) 
           ;; Find object code for module Mod

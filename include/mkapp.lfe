@@ -694,7 +694,7 @@
                  This makes it easy for a client in another node to have access
                  to the api. The generated api functions can call across the network
                  if the global or gproc options are used to register the _genserver_."
-                (lbx:tonodes ',(get-api-modname srvname opts)))))
+                (tonodes ',(get-api-modname srvname opts)))))
 
 
       ;Produce genserver module

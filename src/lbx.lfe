@@ -1,5 +1,12 @@
 (defmodule lbx
- (export all))
+ (export (ifok! 1)
+         (pr 2)
+         (lgi 2)
+         (chop 1)
+         (spnl 1)
+         (getifaddr 0)
+         (startpool 1)
+ ))
 
 (include-lib "../include/lbx.lfe")
 

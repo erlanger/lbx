@@ -17,9 +17,9 @@
 ; lfe>  (-> 1 (+ 2) (pr "result:~p~n") (+ 5))
 ; result:3
 ; 8
-(defun pr 
+(defun pr
   ([x y]
-    (progn 
+    (progn
       (io:format y (list x))
       x)))
 
@@ -32,9 +32,9 @@
 ;
 ; =INFO REPORT==== 17-Jul-2016::11:36:52 ===
 ; result:3
-(defun lgi 
+(defun lgi
   ([x y]
-    (progn 
+    (progn
       (error_logger:info_msg y (list x))
       x)))
 
@@ -47,9 +47,9 @@
 ;
 ; =INFO REPORT==== 17-Jul-2016::11:36:52 ===
 ; result:3
-(defmacro lge 
+(defmacro lge
   ([x tst msg]
-    `(progn 
+    `(progn
       (if ,tst
         (error_logger:error_msg ,msg (list ,x)))
       ,x)))
@@ -58,7 +58,7 @@
 ;; Utility functions
 ;; chop spnl
 ;;---------------------------------------------------------------------
-(defun chop 
+(defun chop
   "Delete newline at end of string."
   ((str) (when (is_list str))
     (-> str
@@ -70,12 +70,12 @@
         (-> str binary_to_list chop list_to_binary)))
 
 (defun spnl
-  "Split string at every newline; returning a list of strings 
+  "Split string at every newline; returning a list of strings
    without including the line termination characters."
-  ([s] (when (is_binary s)) 
+  ([s] (when (is_binary s))
     (binary:split s (list_to_binary (io_lib:nl)) '(global trim_all)))
-  ([s] (when (is_list s)) 
-    (-> (list_to_binary s) 
+  ([s] (when (is_list s))
+    (-> (list_to_binary s)
         (binary:split (list_to_binary (io_lib:nl)) '(global trim_all))
         (lists:map (lambda (e)
                      (binary_to_list e)) @))))
@@ -85,10 +85,10 @@
 ;*************************************************************************
 ;*************************************************************************
 (defun tonodes-unused (module)
-  (let (((tuple mod1 bin file ) 
+  (let (((tuple mod1 bin file )
           ;; Find object code for module Mod
           (code:get_object_code module)))
-    ;; and load it on all nodes if not already loaded 
+    ;; and load it on all nodes if not already loaded
     (lists:foldl (lambda (n res)
                    (spawn n
                           (lambda ()
@@ -106,7 +106,7 @@
   (lists:map (lambda (e) (tonodes (element 1 e))) (code:all_loaded)))
 
 (defun startpool (nodename)
-  "Start a pool of nodes on every host listed in the .hosts.erlang file; 
+  "Start a pool of nodes on every host listed in the .hosts.erlang file;
    the name of the node is specified by <nodename>."
   (pool:start nodename (++ "-loader inet -hosts "
                         "'" (getifaddr) "'"
@@ -115,21 +115,18 @@
 (defun startpool()
   (startpool 'n1))
 
+;Get first non-local running ip address
 (defun getifaddr ()
-  (-> (inet:getifaddrs)
-      (case 
-        ((tuple 'ok T) T)
-        ((tuple 'error E) (error E)))
-      (lists:map (lambda (e) 
-                   (-> e 2nd))
-                 @)
-      (lists:map (lambda (e)
-                       (case e
-                         ((tuple 'addr (tuple A B C D)) (when (!= A 127))
-                           (++ (integer_to_list A) "."
-                               (integer_to_list B) "."
-                               (integer_to_list C) "."
-                               (integer_to_list D)))
-                         (_ ())))
-                 (lists:flatten @))
-      (lists:flatten)))
+   (-> (lc ((<- `#(,if ,opts) (element 2 (inet:getifaddrs)))
+            (<- `#(flags ,flgs) opts)
+            (lists:member 'running flgs) ;only running interfaces
+            (<- `#(addr ,addr) opts)
+            (=/= "lo" if)                ;skip local interfaces
+            (== 4 (size addr)))          ;ip4 address only
+            addr)
+       hd                                ;first address
+       tuple_to_list                     ;convert to string separated by dots
+       (lc ((<- num @))  (integer_to_list num))
+       (string:join "."))
+)
+

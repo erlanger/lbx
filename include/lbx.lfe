@@ -451,12 +451,25 @@
 
 ;This is defined as a macro so that when called there are no dependencies
 ;on external modules
-(defmacro tonodes (module)
+(defmacro tonodes
   "Send module to all the connected nodes."
-  `(if (not (code:is_sticky ,module))
-    (let (((tuple mod1 bin file)
-            ;; Find object code for module Mod
-            (code:get_object_code ,module)))
-      ;; and load it on all nodes if not already loaded
-      (rpc:multicall (nodes) 'code 'load_binary (list mod1 file bin)))))
+  ;Regex to match modules (WARN: only matches at compile time)
+  (([= lst `(,first . ,_rest)]) (when (is_integer first) (< first 255))
+    `(lc ((<- `#(,mod ,_file) (code:all_loaded))
+          (== 'match (re:run (atom_to_list mod) ,lst `(,#(capture none)))))
+         (tonodes mod)))
 
+  ;List of modules (WARN: only matches list at compile time)
+  (([= lst `(,first . ,_rest)]) (when (!= 'quote first))
+    `(lc ((<- mod ,lst))
+         (tonodes mod)))
+
+  ;Individual module
+  ((module)
+    `(if (not (code:is_sticky ,module))
+      (let (((tuple mod1 bin file)
+              ;; Find object code for module Mod
+              (code:get_object_code ,module)))
+        ;; and load it on all nodes if not already loaded
+        (rpc:multicall (nodes) 'code 'load_binary (list mod1 file bin)))))
+)

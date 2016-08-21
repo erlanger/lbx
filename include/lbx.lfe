@@ -1,4 +1,4 @@
- 
+
 ;*************************************************************************
 ;*************************************************************************
 ;List utility macros
@@ -7,52 +7,52 @@
 ;;---------------------------------------------------------------------
 ;; List utility macros
 ;; most workfor for tuples too
-;; 
+;;
 ;; 1st 2nd 3rd 4th 5th 6th 7th 8th 9th 10th
 ;; take last
 ;;---------------------------------------------------------------------
- (defun list-num-aux__ 
-   ([num x] (when (is_list x)) 
+ (defun list-num-aux__
+   ([num x] (when (is_list x))
      (lists:nth num x))
    ([num x] (when (is_tuple x))
      (element num x)))
 
-(defsyntax 1st 
+(defsyntax 1st
   ([x] (list-num-aux__ 1 x)))
 
-(defsyntax 2nd 
+(defsyntax 2nd
   ([x] (list-num-aux__ 2 x)))
 
-(defsyntax 3rd 
+(defsyntax 3rd
   ([x] (list-num-aux__ 3 x)))
 
-(defsyntax 4th 
+(defsyntax 4th
   ([x] (list-num-aux__ 4 x)))
 
-(defsyntax 5th 
+(defsyntax 5th
   ([x] (list-num-aux__ 5 x)))
 
-(defsyntax 6th 
+(defsyntax 6th
   ([x] (list-num-aux__ 6 x)))
 
-(defsyntax 7th 
+(defsyntax 7th
   ([x] (list-num-aux__ 7 x)))
 
-(defsyntax 8th 
+(defsyntax 8th
   ([x] (list-num-aux__ 8 x)))
 
-(defsyntax 9th 
+(defsyntax 9th
   ([x] (list-num-aux__ 9 x)))
 
-(defsyntax 10th 
+(defsyntax 10th
   ([x] (list-num-aux__ 10 x)))
 
-(defsyntax take 
+(defsyntax take
   ([l x]
     (lists:sublist x l)))
 
-(defun last 
-  ([x] (when (is_list x)) 
+(defun last
+  ([x] (when (is_list x))
     (lists:last x))
   ([x] (when (is_tuple x))
     (element (size x)
@@ -83,34 +83,34 @@
 ; to placing the argument in the first position.
 ; lfe> (-> 2 (lge (== 2 @+) "error, got ~p"))
 ; 2
-; 
+;
 ; =ERROR REPORT==== 19-Jul-2016::14:39:24 ===
 ; error, got 2
 ;
 ; It is the same as:
 ; lfe> (-> 2 (lge @ (== 2 @) "error, got ~p"))
-; 
-(defmacro ->                           
-   ([x] 
-     x)                               
+;
+(defmacro ->
+   ([x]
+     x)
    ([x l] (when (is_list l))
      (if (or (>= (cnt@__ '@ l) 2)
              (lists:member '@+ (lists:flatten l)))
        ;Calculate the previous result only one time
        ;if we have more than one @  substitution
-       `(let ((r__ ,x)) 
-          (,(car l) ,@(subst-1 'r__ (cdr l))))  
-       ;Since there are no multiple @ substitutions 
+       `(let ((r__ ,x))
+          (,(car l) ,@(subst-1 'r__ (cdr l))))
+       ;Since there are no multiple @ substitutions
        ;we don't need to store result in a variable
        `( ,(car l) ,@(subst-1 x (cdr l)))))
-   ([x y] 
+   ([x y]
      `(,y ,x))
-   ([ x y . l ]  
+   ([ x y . l ]
      `(-> (-> ,x ,y ) ,@l)))
 
 
 (defmacro tee>
-  ([list x l] 
+  ([list x l]
     `(let* ((r ,x)
            (r1 ,(subst 'r '% l)))
       r)))
@@ -124,9 +124,9 @@
 ;
 ; =INFO REPORT==== 17-Jul-2016::11:36:52 ===
 ; result:3
-(defmacro lge 
+(defmacro lge
   ([x tst msg]
-    `(progn 
+    `(progn
       (if ,tst
         (error_logger:error_msg ,msg (list ,x)))
       ,x)))
@@ -134,14 +134,14 @@
 ; Run an intermediate function before each function call and at the end
 ; for example:
 ;
-; (->m sqrt 1 f1 f2 f3) 
+; (->m sqrt 1 f1 f2 f3)
 ;   becomes:
 ; (-> 1 sqrt f1 sqrt f2 sqrt f3 sqrt)
 (defmacro m>
-  ([cons m x] (when (is_list x)) 
+  ([cons m x] (when (is_list x))
     (cons '->
       (lists:append
-        (lists:map (lambda (e) 
+        (lists:map (lambda (e)
                      `(,e ,m))
                    (1st x))))))
 
@@ -149,43 +149,43 @@
 ; Run an intermediate function before each function call but NOT at the end
 ; for example:
 ;
-; (->m sqrt 1 f1 f2 f3) 
+; (->m sqrt 1 f1 f2 f3)
 ;   becomes:
 ; (-> 1 sqrt f1 sqrt f2 sqrt f3 )
-(defmacro m-> 
-  ([cons m x] (when (is_list x)) 
+(defmacro m->
+  ([cons m x] (when (is_list x))
     (cons '->
       (lists:droplast
         (lists:append
-          (lists:map (lambda (e) 
+          (lists:map (lambda (e)
                        `(,e ,m))
                      (1st x)))))))
 
 (defsyntax ->>
-  ([x] x)                               
-  ( [x ( ss ...)] 
-     (ss ... x))       
-  ( [x y] 
-     (y x))                        
-  ( [ x y z ... ] 
+  ([x] x)
+  ( [x ( ss ...)]
+     (ss ... x))
+  ( [x y]
+     (y x))
+  ( [ x y z ... ]
      (->> (->> x y ) z ...)))
 
 (eval-when-compile
   (defun subst-1 (arg lst)
-    (let ((r arg) 
+    (let ((r arg)
          (flst (lists:flatten lst)))
       (if (lists:member '@ flst)
         ;Substitute @ with arg, and nothing else
         (subst r '@ lst)
         (if (lists:member '@+ flst)
-          ;if there is a @+ (and no @) then substitute them with arg, 
+          ;if there is a @+ (and no @) then substitute them with arg,
           ;AND add arg as the first argument also.
           (subst r '@+ (cons r lst))
           ;If there is no @ or @+ simply put arg as the first argument
           (cons  arg lst)))))
   ;Count number of 'sysms' in 'lst'
   (defun cnt@__ (sym lst)
-    (lists:foldl (lambda (x a) 
+    (lists:foldl (lambda (x a)
                    (if (== x sym) (+ a 1) a))
                  0
                  (lists:flatten lst)))
@@ -200,16 +200,16 @@
 ;           The return value of the chain if no function
 ;           returns an error tuple.
 (defsyntax i>
-   ( (( s ...) ee) 
+   ( (( s ...) ee)
       (case (-> s ...)
-         ([tuple 'error e] 
+         ([tuple 'error e]
             (error_logger:info_msg "   ~p~n      (~p)" (list ee e)))
-         (r r)))) 
+         (r r))))
 
 
 ;*************************************************************************
 ;*************************************************************************
-; Run external commands 
+; Run external commands
 ;*************************************************************************
 ;*************************************************************************
 ;;---------------------------------------------------------------------
@@ -217,7 +217,7 @@
 ;;---------------------------------------------------------------------
 (defmacro exec
   "Execute external command."
-  ([cmd] 
+  ([cmd]
     `(exec-aux__ ,cmd
                  '( stream exit_status use_stdio
                     stderr_to_stdout in eof)))
@@ -225,7 +225,7 @@
     `(exec-aux__ ,cmd
                  '( stream exit_status use_stdio
                     stderr_to_stdout in eof ,@opts)))
-  ([cmd opt] 
+  ([cmd opt]
     `(exec-aux__ ,cmd
                  '( stream exit_status use_stdio
                     stderr_to_stdout in eof ,opt))))
@@ -233,28 +233,28 @@
 (defmacro exec!-aux__
   ([res]
     `(case ,res
-      ([tuple 0 l] (when (> (length l) 1)) 
-        l) 
-      ([tuple 0 l] (when (== (length l) 1)) 
+      ([tuple 0 l] (when (> (length l) 1))
+        l)
+      ([tuple 0 l] (when (== (length l) 1))
         (hd l))
-      ([tuple n l] 
+      ([tuple n l]
         (error (tuple 'error (tuple 'non_zero_exit_status n l))))
         )))
 
 (defmacro exec-aux__
   ([cmd opts]
-    `(-> #(spawn ,cmd) 
-        (open_port ,opts) 
+    `(-> #(spawn ,cmd)
+        (open_port ,opts)
         (exec-get-data__ ()))))
 
-(defun exec-get-data__ (p d) 
+(defun exec-get-data__ (p d)
   (receive
     ((tuple p (tuple 'data d1))
       (exec-get-data__ p (cons d1 d )))
     ((tuple p 'eof)
-      (progn 
+      (progn
         (port_close p)
-        (receive 
+        (receive
           ((tuple p (tuple 'exit_status n))
             `#(,n ,(lists:reverse d))))))))
 
@@ -271,7 +271,7 @@
 
 ;*************************************************************************
 ;*************************************************************************
-; Color macros 
+; Color macros
 ;*************************************************************************
 ;*************************************************************************
 ; Text Reset
@@ -348,7 +348,7 @@
 (defmacro CBIw () "\e[0;107m")
 
 (defmacro color-aux__ (string)
-   `(-> ,string 
+   `(-> ,string
 
        (re:replace "\\^l\\^" (Cl) '(global #(return list)))
        (re:replace "\\^r\\^" (Cr) '(global #(return list)))
@@ -433,7 +433,7 @@
          (++ @ (Crst)))
    ))
 
-(defmacro fmt 
+(defmacro fmt
   ([str args] (when (is_list str))
   `(lists:flatten (io_lib:format `(,@(color-aux__ ,str)) ,args))))
 
@@ -445,7 +445,7 @@
 
 ;*************************************************************************
 ;*************************************************************************
-; Node/network macros 
+; Node/network macros
 ;*************************************************************************
 ;*************************************************************************
 
@@ -454,9 +454,9 @@
 (defmacro tonodes (module)
   "Send module to all the connected nodes."
   `(if (not (code:is_sticky ,module))
-    (let (((tuple mod1 bin file) 
+    (let (((tuple mod1 bin file)
             ;; Find object code for module Mod
             (code:get_object_code ,module)))
-      ;; and load it on all nodes if not already loaded 
+      ;; and load it on all nodes if not already loaded
       (rpc:multicall (nodes) 'code 'load_binary (list mod1 file bin)))))
 

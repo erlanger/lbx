@@ -389,6 +389,31 @@
             (list ',srvname Msg))
           (tuple 'noreply State__))))
 
+  ;{nodeup, Node} and {nodedown, Node} messages from
+  ;(net_kernel:monitor_nodes 'true)
+  (defun mk-hci-nodeup-clause (srvname opts)
+    (if (proplists:get_bool 'no_monitor_nodes opts) ;add nodeup clause if needed
+      ()
+      (list
+        `([`#(nodeup ,Node) State__]
+          (progn
+            (error_logger:info_msg
+              "     ~s: Node ~p just connected. Sending api code."
+              (list ',srvname Node))
+            ,(mk-spray_api-call srvname api opts)
+            (tuple 'noreply State__))))))
+
+  (defun mk-hci-nodedown-clause (srvname opts)
+    (if (proplists:get_bool 'no_monitor_nodes opts) ;add nodedown clause if needed
+      ()
+      (list
+        `([`#(nodedown ,Node) State__]
+            (progn
+              (error_logger:info_msg
+                "     ~s: Node ~p is down."
+                (list ',srvname Node))
+              (tuple 'noreply State__))))))
+
   ; produce all necessary handle_call functions, e.g.:
   ;(mk-handle_calls '((call open (door key) (+ door key))
   ;                    (1 2 3)
@@ -433,9 +458,14 @@
         (++ (lists:map (lambda (e)
                          (mk-hci-clause e (get-match-state-aux__ api) api))
                        (filter-on-1st 'info lst))
-            (list (mk-hci-def-clause srvname))))))
+            (mk-hci-nodeup-clause srvname opts)
+            (mk-hci-nodedown-clause srvname opts)
+            (list (mk-hci-def-clause srvname))
+            ))))
       (list (cons 'defun (cons 'handle_info
-        (list (mk-hci-def-clause srvname)))))
+        (++ (mk-hci-nodeup-clause srvname opts)
+            (mk-hci-nodedown-clause srvname opts)
+            (list (mk-hci-def-clause srvname))))))
       ))
 
   ; make a call to spray_api only if it is defined
@@ -451,10 +481,16 @@
     (list
       (if (any 'init api)
         (list 'defun 'init '(Args)
-          (lists:nth 2 (hd (filter-on-1st 'init api))))
+          `(progn
+             ,(if (proplists:get_bool 'no_monitor_nodes opts) ;add monitor_node call if needed
+                ()
+                `(net_kernel:monitor_nodes 'true))
+             ,(lists:nth 2 (hd (filter-on-1st 'init api)))))
         (list 'defun 'init '(Args)
           `(progn
-            ,(mk-spray_api-call srvname api opts)
+             ,(if (proplists:get_bool 'no_monitor_nodes opts) ;add monitor_node call if needed
+                ()
+                `(net_kernel:monitor_nodes 'true))
             #(ok ()))))))
 
   ; produce gen_server terminate function

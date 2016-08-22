@@ -27,21 +27,21 @@
 
 (include-lib "ltest/include/ltest-macros.lfe")
 
-(defun set-up ()
+(defun info-set-up ()
   (progn
     (ets:new 'testdb '(public named_table))
     (info:start_link)))
 
-(defun tear-down (set-up-result)
+(defun info-tear-down (set-up-result)
   (progn
     (gen_server:stop 'info)
     (ets:delete 'testdb)))
 
 (deftest start-info-server
- (is-match (tuple 'ok _) (set-up)))
+ (is-match (tuple 'ok _) (info-set-up)))
 
 (deftest stop-info-server
- (is-equal 'true (tear-down 'ok)))
+ (is-equal 'true (info-tear-down 'ok)))
 
 (deftestcase info-msg (sres)
  (is-equal 'test_msg
@@ -50,14 +50,14 @@
      (? 200 'ok) ;wait for insert
      (2nd (hd (ets:lookup 'testdb 'info) )))))
 
-(deftestcase initial-state (sres)
+(deftestcase default-initial-state (sres)
  (is-equal '() (sys:get_state 'info)))
 
-(deftestgen stup-setup-cleanup
+(deftestgen info-cases
   `#(foreach
-     ,(defsetup set-up)
-     ,(defteardown tear-down)
+     ,(defsetup info-set-up)
+     ,(defteardown info-tear-down)
      ,(deftestcases
          info-msg
-         initial-state
+         default-initial-state
          )))

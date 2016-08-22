@@ -3,39 +3,39 @@
 
 ;An exmaple of a gen_server and its api generated bu mk-genserver
 ;This creates the doors module and the doors_api module
-(genserver doors 
+(genserver doors
   ((state-match (tuple roomstate roomkeys))
-  (call open (door) 
+  (call open (door)
    "Open the specified door, without a key."
     (open door () roomstate roomkeys (state)))
   (call state (door) `#(reply ,(maps:get door roomstate) ,(state)))
   (call open (door key) (open door key roomstate roomkeys (state)))
-  (call-match-3 (tuple 'close door) pid 'one_closed 
+  (call-match-3 (tuple 'close door) pid 'one_closed
       `#(reply ok ,(upd-door (state) door 'closed)))
-  (call close (door) 
+  (call close (door)
       `#(reply ok ,(upd-door (state) door 'closed)))
-  (cast kick (door) 
+  (cast kick (door)
    "Kicks the door setting its state to 'kicked. Sets timer for door
     to be repaired in 5 secs."
-    (progn 
+    (progn
       (timer:apply_after 5000 'doors_api 'repair (list door))
       `#(noreply ,(upd-door (state) door 'kicked))))
-  (cast repair (door) 
+  (cast repair (door)
       `#(noreply ,(upd-door (state) door 'open)))
   ;(info (tuple 'close door) (close door))
-  (init `#(ok ,(tuple 
-                #M(1 open 2 closed 3 open 4 open) 
+  (init `#(ok ,(tuple
+                #M(1 open 2 closed 3 open 4 open)
                 #M(1 345))))
   ;trigger prev-state-match curr-state-match tigger-body
   ;trigger prev-state-match curr-state-match guard tigger-body
   ;trigger api-name-match prev-state-match curr-state-match tigger-body
   ;trigger api-name-match prev-state-match curr-state-match guard tigger-body
   ;(trigger-all olds 'one_closed 'true (format "^r^one reached: ~p~n" (list (get-reply))))
-  (trigger 'close olds news (!= olds news) 
+  (trigger 'close olds news (!= olds news)
     (format "^g^door closed: ~p~n" (list (get-args))))
-  (trigger 'open olds news (!= olds news) 
+  (trigger 'open olds news (!= olds news)
     (format "^g^door opened ~p~n" (list (get-args))))
-  (trigger 'repair olds news (!= olds news) 
+  (trigger 'repair olds news (!= olds news)
     (format "^g^door repaired ~p~n" (list (get-args))))
   ;(terminate 'ok)
   ) ;end of api
@@ -45,11 +45,11 @@
   ;(global print )
   ;(print #(api-module myapi_module))
   ;(print)
-) 
+)
 
 ;These will go in the doors module
 (defun upd-door (((tuple roomstate roomkeys) door newstate)
-  (let 
+  (let
    ((newrs (map-update roomstate door newstate)))
     (tuple newrs roomkeys))))
 
@@ -81,7 +81,7 @@
 
 (defun tear-down (set-up-result) (gen_server:stop #(global doors)))
 
-(deftest start-genserver 
+(deftest start-genserver
  (is-match (tuple 'ok _) (set-up)))
 
 (deftest stop-genserver
@@ -112,8 +112,8 @@
   `#(foreach
      ,(defsetup set-up)
      ,(defteardown tear-down)
-     ,(deftestcases 
-         open-door-api 
+     ,(deftestcases
+         open-door-api
          open-door-w-key-api
          kick-api
          close-api)))

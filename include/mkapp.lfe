@@ -409,7 +409,7 @@
                            (filter-on-1st 'call api)))
             (list (mk-hca-def-clause))))))
       (list (cons 'defun (cons 'handle_call
-        (list (mk-hct-def-clause srvname)))))
+        (list (mk-hca-def-clause)))))
       ))
 
   ; produce all necessary handle_cast functions, e.g.:
@@ -438,6 +438,14 @@
         (list (mk-hci-def-clause srvname)))))
       ))
 
+  ; make a call to spray_api only if it is defined
+  (defun mk-spray_api-call (srvname api opts)
+    (if (or (any 'call api)
+            (any 'cast api))
+      `(: ,(get-api-modname srvname opts) spray_api)
+      ())
+  )
+
   ; produce gen_server init function
   (defun mk-init (srvname api opts)
     (list
@@ -446,7 +454,7 @@
           (lists:nth 2 (hd (filter-on-1st 'init api))))
         (list 'defun 'init '(Args)
           `(progn
-            (: ,(get-api-modname srvname opts) spray_api)
+            ,(mk-spray_api-call srvname api opts)
             #(ok ()))))))
 
   ; produce gen_server terminate function
@@ -670,31 +678,39 @@
               (orddict:fetch_keys (grp-apicalls 'cast api)))))
       ()))
 
+  (defun mk-api-module (srvname api opts rst)
+    (++
+        ;Produce api module only if there is any call or cast
+        (list `(defmodule ,(get-api-modname srvname opts)
+                 "This is the API module, it contains the user visible callable
+                  functions, which are generally calls or casts. The global or gproc
+                  option of the `genserver` macro needs to be specified in order
+                  for the functions to work across nodes through a network connection."
+                ,(mk-export api opts rst)
+                ;(export all)
+                ))
+        (mk-apimod-funs srvname 'call api opts)
+        (mk-apimod-funs srvname 'cast api opts)
+
+        ;function to send api module to all connected nodes
+        (if (any-fun 'spray_api rst)
+          ()
+          (list `(defun spray_api ()
+                  "Send the code of this api module to all the connected nodes.
+                   This makes it easy for a client in another node to have access
+                   to the api. The generated api functions can call across the network
+                   if the global or gproc options are used to register the _genserver_."
+                  (tonodes ',(get-api-modname srvname opts)))))))
+
   ;generates the gen_server module, its corresponding api module
   ;and all the necessary functions.
   (defun genserver-aux__ (srvname api opts rst)
     (++ '(progn)
-      ;Produce api module
-      (list `(defmodule ,(get-api-modname srvname opts)
-               "This is the API module, it contains the user visible callable
-                functions, which are generally calls or casts. The global or gproc
-                option of the `genserver` macro needs to be specified in order
-                for the functions to work across nodes through a network connection."
-              ,(mk-export api opts rst)
-              ;(export all)
-              ))
-      (mk-apimod-funs srvname 'call api opts)
-      (mk-apimod-funs srvname 'cast api opts)
-
-      ;function to send api module to all connected nodes
-      (if (any-fun 'spray_api rst)
-        ()
-        (list `(defun spray_api ()
-                "Send the code of this api module to all the connected nodes.
-                 This makes it easy for a client in another node to have access
-                 to the api. The generated api functions can call across the network
-                 if the global or gproc options are used to register the _genserver_."
-                (tonodes ',(get-api-modname srvname opts)))))
+      ;Produce api module only if there is any call or cast
+      (if (or (any 'call api)
+              (any 'cast api))
+        (mk-api-module srvname api opts rst)
+        ())
 
 
       ;Produce genserver module

@@ -27,6 +27,9 @@
 
 (include-lib "ltest/include/ltest-macros.lfe")
 
+;------------------------------------
+; Simple info tests
+;------------------------------------
 (defun info-set-up ()
   (progn
     (ets:new 'testdb '(public named_table))

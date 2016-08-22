@@ -16,9 +16,9 @@
       `#(reply ok ,(upd-door (state) door 'closed)))
   (cast kick (door)
    "Kicks the door setting its state to 'kicked. Sets timer for door
-    to be repaired in 5 secs."
+    to be repaired in 1 secs."
     (progn
-      (timer:apply_after 5000 'doors_api 'repair (list door))
+      (timer:apply_after 1000 'doors_api 'repair (list door))
       `#(noreply ,(upd-door (state) door 'kicked))))
   (cast repair (door)
       `#(noreply ,(upd-door (state) door 'open)))
@@ -101,7 +101,7 @@
  (is-equal 'ok  (doors_api:kick 2))
  (is-equal 'kicked (doors_api:state 2))
  ;wait until door is repaired by trigger
- (is-equal 'closed (? 5100 (doors_api:state 2)))
+ (is-equal 'open (? 1100 (doors_api:state 2)))
  (is-equal 'dummy (? 1100 'dummy)))
 
 (deftestcase close-api (sres)

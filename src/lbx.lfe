@@ -6,7 +6,16 @@
          (spnl 1)
          (getifaddr 0)
          (startpool 1)
- ))
+         (format 1)
+         (format 2))
+ (export-macro
+         1st 2nd 3rd 4th 5th 6th 7th 8th 9th 10th take last
+         -> m> m-> lge
+         exec exec!
+         fmt
+         color-aux__
+         tonodes spraycode)
+ )
 
 (include-lib "../include/lbx.lfe")
 

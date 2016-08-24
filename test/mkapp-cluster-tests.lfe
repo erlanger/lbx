@@ -21,6 +21,16 @@
   ) ;end of api
   (print global no_send_api)
 )
+
+(genserver noglobal
+  ((info (tuple 'store val)
+     `#(noreply ,val))
+
+  ) ;end of api
+  (print)
+)
+
+
 ;Anything here goes in the info module
 
 
@@ -38,7 +48,6 @@
 ;------------------------------------
 ; Cluster tests
 ;------------------------------------
-
 (defun rmt-node ()
   (list_to_atom (++ "ctest1@" (lbx:getifaddr))))
 
@@ -67,6 +76,10 @@
     ;(gen_server:stop 'cluster) no idea why the gen_server dies before tear-down
     (ets:delete 'clusterdb)))
 
+(defun global-opt ()
+  `(,(is-equal (rmt-node) (node))
+    ,(is-equal '(cluster nosend) (global:registered_names))))
+
 (defun no-send-opt ()
   `(,(is-equal (rmt-node) (node))
     ,(is-equal 'false (code:is_loaded 'nosend_api))))
@@ -92,6 +105,7 @@
 (defun remote_api (set-up-result)
   "This is the eunit 'Instantiator' ."
   `(
+     ,(tuple "global option" #'global-opt/0)
      ,(tuple "auto send api on init" #'auto-send/0)
      ,(tuple "no_send_api option" #'no-send-opt/0)
      ,(tuple "remote call" #'remote_call/0)

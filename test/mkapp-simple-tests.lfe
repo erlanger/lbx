@@ -47,14 +47,15 @@
  (is-equal 'true (info-tear-down 'ok)))
 
 (deftestcase info-msg (sres)
- (is-equal 'test_msg
-   (progn
-     (! 'info #(store test_msg))
-     (? 200 'ok) ;wait for insert
-     (2nd (hd (ets:lookup 'testdb 'info) )))))
+  (tuple "local info api"
+    (is-equal 'test_msg
+      (progn
+        (! 'info #(store test_msg))
+        (? 200 'ok) ;wait for insert
+        (2nd (hd (ets:lookup 'testdb 'info) ))))))
 
 (deftestcase default-initial-state (sres)
- (is-equal '() (sys:get_state 'info)))
+  (tuple "empty default initial state" (is-equal '() (sys:get_state 'info))))
 
 (deftestgen info-cases
   `#(foreach

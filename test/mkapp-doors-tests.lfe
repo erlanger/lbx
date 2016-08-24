@@ -88,20 +88,20 @@
  (is-match 'ok (tear-down 'ok)))
 
 (deftestcase open-door-api (sres)
- (tuple "open3" (is-equal 'already_open (doors_api:open 3)))
- (tuple "open2" (is-equal 'ok (doors_api:open 2))))
+ (tuple "door already open w/o key" (is-equal 'already_open (doors_api:open 3)))
+ (tuple "door open" (is-equal 'ok (doors_api:open 2))))
 
 (deftestcase open-door-w-key-api (sres)
- (is-equal 'already_open  (doors_api:open 1))
- (is-equal 'ok  (doors_api:close 1))
- (is-equal 'needs_key  (doors_api:open 1 000))
- (is-equal 'ok  (doors_api:open 1 345)))
+ (tuple "door already open w/key" (is-equal 'already_open  (doors_api:open 1)))
+ (tuple "close door" (is-equal 'ok  (doors_api:close 1)))
+ (tuple "needs key"  (is-equal 'needs_key  (doors_api:open 1 000)))
+ (tuple "open w/key" (is-equal 'ok  (doors_api:open 1 345))))
 
 (deftestcase kick-api (sres)
- (is-equal 'ok  (doors_api:kick 2))
- (is-equal 'kicked (doors_api:state 2))
+ (tuple "kick cast" (is-equal 'ok  (doors_api:kick 2)))
+ (tuple "kicked state" (is-equal 'kicked (doors_api:state 2)))
  ;wait until door is repaired by trigger
- (is-equal 'open (? 1100 (doors_api:state 2)))
+ (tuple "trigger initiated" (is-equal 'open (? 1100 (doors_api:state 2))))
  (is-equal 'dummy (? 1100 'dummy)))
 
 (deftestcase close-api (sres)

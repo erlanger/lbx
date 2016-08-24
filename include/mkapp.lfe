@@ -470,8 +470,9 @@
 
   ; make a call to spray_api only if it is defined
   (defun mk-spray_api-call (srvname api opts)
-    (if (or (any 'call api)
-            (any 'cast api))
+    (if (and (not (proplists:get_bool 'no_send_api opts))
+             (or (any 'call api)
+                 (any 'cast api)))
       `(: ,(get-api-modname srvname opts) spray_api)
       ())
   )
@@ -484,13 +485,15 @@
           `(progn
              ,(if (proplists:get_bool 'no_monitor_nodes opts) ;add monitor_node call if needed
                 ()
-                `(net_kernel:monitor_nodes 'true))
+                `(list (net_kernel:monitor_nodes 'true)
+						     ,(mk-spray_api-call srvname api opts)))
              ,(lists:nth 2 (hd (filter-on-1st 'init api)))))
         (list 'defun 'init '(Args)
           `(progn
              ,(if (proplists:get_bool 'no_monitor_nodes opts) ;add monitor_node call if needed
                 ()
-                `(net_kernel:monitor_nodes 'true))
+                `(list (net_kernel:monitor_nodes 'true)
+						     ,(mk-spray_api-call srvname api opts)))
             #(ok ()))))))
 
   ; produce gen_server terminate function

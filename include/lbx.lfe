@@ -269,31 +269,30 @@
                      stderr_to_stdout in eof binary)))))
 
 
-(defun exec-aux__
-  [cmd opts]
-    (-> (lists:member 'shell opts)
-        (if (++ "sh -c \"" cmd "\"") cmd) ;use "sh -c <cmd>" if shell option
+(defun exec-aux__ (cmd opts)
+  (-> (lists:member 'shell opts)
+      (if (++ "sh -c \"" cmd "\"") cmd) ;use "sh -c <cmd>" if shell option
 
-        ;execute external command
-        (tuple 'spawn @)
-        (open_port (-- opts '(shell nocolor list)))
-        (exec-get-data__ ())
+      ;execute external command
+      (tuple 'spawn @)
+      (open_port (-- opts '(shell nocolor list)))
+      (exec-get-data__ ())
 
-        ;turn iolist into binary
+      ;turn iolist into binary
+      (tuple (element 1 @)
+             (iolist_to_binary (element 2 @)))
+
+      ;convert to list if list option
+      (if (lists:member 'list opts)
         (tuple (element 1 @)
-               (iolist_to_binary (element 2 @)))
+               (binary_to_list (element 2 @)))
+        @)
 
-        ;convert to list if list option
-        (if (lists:member 'list opts)
-          (tuple (element 1 @)
-                 (binary_to_list (element 2 @)))
-          @)
-
-        ;strip color escape codes if nocolor option
-        (if (lists:member 'nocolor opts)
-          (tuple (element 1 @)
-                 (lbx:nocolor (element 2 @)))
-          @)))
+      ;strip color escape codes if nocolor option
+      (if (lists:member 'nocolor opts)
+        (tuple (element 1 @)
+               (lbx:nocolor (element 2 @)))
+        @)))
 
 (defun exec-get-data__ (p d)
   (receive
@@ -307,13 +306,12 @@
             `#(,n ,(lists:reverse d))))))))
 
 (eval-when-compile
-(defun exec!-aux__
-  (res)
-    `(case ,res
-      ([tuple 0 l]
-        l)
-      ([tuple n l]
-        (error (tuple 'non_zero_exit_status (tuple n l))))))
+(defun exec!-aux__ (res)
+  `(case ,res
+    ([tuple 0 l]
+      l)
+    ([tuple n l]
+      (error (tuple 'non_zero_exit_status (tuple n l))))))
 )
 
 (defmacro exec! args

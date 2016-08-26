@@ -28,52 +28,57 @@
 
 (include-lib "../include/lbx.lfe")
 
-;if x is a #(ok Result) tuple return Result,
-;otherwise error out of the process with x
 (defun ifok! (x)
+  "if x is a #(ok Result) tuple return Result,
+  otherwise error out of the process with x
+  "
   (case x
     ([tuple 'ok res] res)
     (err (error err))))
 
-; Print result so far and return the result to be used in the rest
-; of the thread.
-;
-; Example:
-; lfe>  (-> 1 (+ 2) (pr "result:~p~n") (+ 5))
-; result:3
-; 8
 (defun pr
+  "Print result so far and return the result to be used in the rest
+  of the thread.
+
+  Example:
+  lfe>  (-> 1 (+ 2) (pr \"result:~p~n\") (+ 5))
+  result:3
+  8"
   ([x y]
     (progn
       (io:format y (list x))
       x)))
 
-; Log the resul so far and return the result to be used in the rest
-; of the thread. error_logger:info_msg is used to log the message.
-;
-; Example:
-; lfe>  (-> 1 (+ 2) (lgi "result:~p~n") (+ 5))
-; 8
-;
-; =INFO REPORT==== 17-Jul-2016::11:36:52 ===
-; result:3
 (defun lgi
+  "info_msg() the resul so far and return the result to be used in the rest
+  of the thread. error_logger:info_msg is used to log the message.
+  ~p specifies where to print the result so far.
+
+  Example:
+  lfe>  (-> 1 (+ 2) (lgi \"result:~p~n\") (+ 5))
+  8
+
+  =INFO REPORT==== 17-Jul-2016::11:36:52 ===
+  result:3
+  "
   ([x y]
     (progn
       (error_logger:info_msg y (list x))
       x)))
 
-; Log the resul so far and return the result to be used in the rest
-; of the thread. error_logger:error_msg is used to log the message.
-;
-; Example:
-; lfe>  (-> 1 (+ 2) (case (3 (lge "error, got three!:~p~n")) (r r)) (+ 5))
-; 8
-;
-; =INFO REPORT==== 17-Jul-2016::11:36:52 ===
-; result:3
 (defmacro lge
-  ([x tst msg]
+  "error_msg() the resul so far and return the result to be used in the rest
+  of the thread. error_logger:error_msg is used to log the message.
+  ~p specifies where to print the result so far.
+
+  Example:
+  lfe>  (-> 1 (+ 2) (case (3 (lge \"error, got three!:~p~n\")) (r r)) (+ 5))
+  8
+
+  =INFO REPORT==== 17-Jul-2016::11:36:52 ===
+  result:3
+  "
+  ([list x tst msg]
     `(progn
       (if ,tst
         (error_logger:error_msg ,msg (list ,x)))
@@ -84,7 +89,7 @@
 ;; chop spnl
 ;;---------------------------------------------------------------------
 (defun chop
-  "Delete newline at end of string."
+  "Delete newline at end of string/binary."
   ((str) (when (is_list str))
     (-> str
         ;We reverse to delete only the last new line
@@ -127,7 +132,9 @@
                    (nodes))))
 
 (defun spraycode ()
-  "Send all loaded modules to all connected nodes."
+  "Send all loaded modules to all connected nodes.
+   Sticky modules are skipped.
+  "
   (lists:map (lambda (e) (tonodes (element 1 e))) (code:all_loaded)))
 
 (defun startpool (nodename)

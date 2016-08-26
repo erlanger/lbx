@@ -221,22 +221,52 @@
 ;; exec exec!
 ;;---------------------------------------------------------------------
 (defun exec (cmd)
-  "Execute external command."
+  "Execute external command. See exec/2 for examples and more information."
     (exec-aux__ cmd
                  '( stream exit_status use_stdio
-                    stderr_to_stdout in eof)))
+                    stderr_to_stdout in eof binary)))
 
 (defun exec (cmd opts)
-  "Execute external command. Any of the options for open_port({spawn,...})
-  can be used. In addition the following options are supported:
+  "Execute external command. Consider the 'shell' option if
+   you want to run the source for a mini-script on the 'sh' shell.
 
-  shell    run command under sh -c \"<command>\"
-  nocolor  strip ANSI color escape codes from output
+  Example:
+  > (exec \"if [ -z $DISPLAY ]; then echo underx; else echo console; fi\" '(shell))
+  #(0 #\"console\n\")
+
+  Arguments:
+    cmd      A string specifying the command to execute.
+             If the 'shell' option is not specified the word before
+             the first whitespaces is the command to execute,
+             the rest are the arguments for the command.
+
+             if the 'shell' option is specified the whole of 'cmd'
+             is sent to the shell as 'sh -c \"<cmd>\"'
+
+    opts     See below for available options.
+
+  Returns:
+    A tuple '#(status output)', where status is an integer indicating
+    the exit status and 'output' is a binary with the output of the
+    command (stderr is redirected to stdio). If you want a list instead
+    use the 'list' option.
+
+  Options:
+    Any of the options for open_port({spawn,...})
+    can be used. In addition the following options are supported:
+
+    shell    run command under sh -c \"<command>\"
+    nocolor  strip ANSI color escape codes from output
+    list     return a list instead of a binary
+
+  See also:
+    The 'sh' function intended to be used in the lfe
+    shell to execute shell commands easily.
   "
     (exec-aux__ cmd
                 (lists:flatten
                   (cons opts '(stream exit_status use_stdio
-                     stderr_to_stdout in eof)))))
+                     stderr_to_stdout in eof binary)))))
 
 
 (defun exec-aux__
@@ -246,18 +276,18 @@
 
         ;execute external command
         (tuple 'spawn @)
-        (open_port (-- opts '(shell nocolor)))
+        (open_port (-- opts '(shell nocolor list)))
         (exec-get-data__ ())
 
         ;turn iolist into binary
         (tuple (element 1 @)
                (iolist_to_binary (element 2 @)))
 
-        ;convert to list if binary was not specified
-        (if (lists:member 'binary opts)
-          @
+        ;convert to list if list option
+        (if (lists:member 'list opts)
           (tuple (element 1 @)
-                 (binary_to_list (element 2 @))))
+                 (binary_to_list (element 2 @)))
+          @)
 
         ;strip color escape codes if nocolor option
         (if (lists:member 'nocolor opts)
@@ -283,11 +313,24 @@
       ([tuple 0 l]
         l)
       ([tuple n l]
-        (error (tuple 'error (tuple 'non_zero_exit_status n l))))))
+        (error (tuple 'non_zero_exit_status (tuple n l))))))
 )
 
 (defmacro exec! args
-  "Execute external command, calling error(...) if it fails."
+  "Execute external command, calling error(...) if it fails.
+
+   Example:
+   > (exec \"if [ -z $DISPLAY ]; then echo underx; else echo console; fi\" '(shell))
+   #\"console\"
+
+   Arguments, options:
+     Same as exec.
+
+   Returns:
+     A binary with the output from the command. If the exit status is non-zero it
+     errors (terminating the calling process) with a tuple:
+     #(non_zero_exit_status #(<exit_status> <output>))
+  "
   `(lbx:chop ,(exec!-aux__ `(lbx:exec ,@args))))
 
 (defun sh (cmd)
@@ -478,7 +521,7 @@
   (lfe_io:format (color-aux__ fstr) args))
 
 (defun format (fstr)
-  (format (color-aux__ fstr) () ))
+  (format "~s" (list (color-aux__ fstr))))
 
 ;*************************************************************************
 ;*************************************************************************

@@ -122,24 +122,24 @@
 
 ;---------------- exec tests ------------------------
 (deftest os-exec-one-line
-  (is-equal #(0 "270\n") (lbx:exec "expr 9 '*' 30")))
+  (is-equal #(0 #"270\n") (lbx:exec "expr 9 '*' 30")))
 
 (deftest os-exec-shell
-  (is-equal #(0 "one\ntwo\n") (lbx:exec "echo one; echo two" 'shell)))
+  (is-equal #(0 #"one\ntwo\n") (lbx:exec "echo one; echo two" 'shell)))
 
-(deftest os-exec-binary-shell
-  (is-equal #(0 #"one\ntwo\n")
-    (lbx:exec "echo one; sleep 0.1; echo two" '(shell binary))))
+(deftest os-exec-list-shell
+  (is-equal #(0 "one\ntwo\n")
+    (lbx:exec "echo one; sleep 0.1; echo two" '(shell list))))
 
 (deftest os-exec-exit-status
-  (is-equal #(5 ()) (lbx:exec "exit 5" 'shell)))
+  (is-equal #(5 #"") (lbx:exec "exit 5" 'shell)))
 
 (deftest os-exec-bang
-  (is-equal "10" (lbx:exec! "expr 9 '+' 1")))
+  (is-equal #"10" (lbx:exec! "expr 9 '+' 1")))
 
 (deftest os-exec-bang-non-zero-exit
   (is-exception 'error
-    (tuple 'error (tuple 'non_zero_exit_status 5 str))
+    (tuple 'non_zero_exit_status #(5 #""))
     (lbx:exec! "exit 5" 'shell)))
 
 

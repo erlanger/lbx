@@ -11,41 +11,47 @@
 ;; 1st 2nd 3rd 4th 5th 6th 7th 8th 9th 10th
 ;; take last
 ;;---------------------------------------------------------------------
- (defun list-num-aux__
-   ([num x] (when (is_list x))
-     (lists:nth num x))
-   ([num x] (when (is_tuple x))
-     (element num x)))
 
-(defsyntax 1st
-  ([x] (list-num-aux__ 1 x)))
 
-(defsyntax 2nd
-  ([x] (list-num-aux__ 2 x)))
+(eval-when-compile
+ (defun list-num-aux__ (num x)
+   `(case (is_list ,x)
+      ('true (lists:nth ,num ,x))
+      ('false
+        (case (is_tuple ,x)
+          ('true (element ,num ,x))
+          ('false #(error expected_tuple_or_list))))))
+)
 
-(defsyntax 3rd
-  ([x] (list-num-aux__ 3 x)))
+(defmacro 1st
+  ([list x] (list-num-aux__ 1 x)))
 
-(defsyntax 4th
-  ([x] (list-num-aux__ 4 x)))
+(defmacro 2nd
+  ([list x] (list-num-aux__ 2 x)))
 
-(defsyntax 5th
-  ([x] (list-num-aux__ 5 x)))
+(defmacro 3rd
+  ([list x] (list-num-aux__ 3 x)))
 
-(defsyntax 6th
-  ([x] (list-num-aux__ 6 x)))
+(defmacro 4th
+  ([list x] (list-num-aux__ 4 x)))
 
-(defsyntax 7th
-  ([x] (list-num-aux__ 7 x)))
+(defmacro 5th
+  ([list x] (list-num-aux__ 5 x)))
 
-(defsyntax 8th
-  ([x] (list-num-aux__ 8 x)))
+(defmacro 6th
+  ([list x] (list-num-aux__ 6 x)))
 
-(defsyntax 9th
-  ([x] (list-num-aux__ 9 x)))
+(defmacro 7th
+  ([list x] (list-num-aux__ 7 x)))
 
-(defsyntax 10th
-  ([x] (list-num-aux__ 10 x)))
+(defmacro 8th
+  ([list x] (list-num-aux__ 8 x)))
+
+(defmacro 9th
+  ([list x] (list-num-aux__ 9 x)))
+
+(defmacro 10th
+  ([list x] (list-num-aux__ 10 x)))
 
 (defsyntax take
   ([l x]
@@ -55,8 +61,7 @@
   ([x] (when (is_list x))
     (lists:last x))
   ([x] (when (is_tuple x))
-    (element (size x)
-              x)))
+    (element (size x) x)))
 
 ;*************************************************************************
 ;*************************************************************************
@@ -91,9 +96,9 @@
 ; lfe> (-> 2 (lge @ (== 2 @) "error, got ~p"))
 ;
 (defmacro ->
-   ([x]
+   ([list x]
      x)
-   ([x l] (when (is_list l))
+   ([list x l] (when (is_list l))
      (if (or (>= (cnt@__ '@ l) 2)
              (lists:member '@+ (lists:flatten l)))
        ;Calculate the previous result only one time
@@ -103,9 +108,9 @@
        ;Since there are no multiple @ substitutions
        ;we don't need to store result in a variable
        `( ,(car l) ,@(subst-1 x (cdr l)))))
-   ([x y]
+   ([list x y]
      `(,y ,x))
-   ([ x y . l ]
+   ([list* x y  l ]
      `(-> (-> ,x ,y ) ,@l)))
 
 
@@ -125,7 +130,7 @@
 ; =INFO REPORT==== 17-Jul-2016::11:36:52 ===
 ; result:3
 (defmacro lge
-  ([x tst msg]
+  ([list x tst msg]
     `(progn
       (if ,tst
         (error_logger:error_msg ,msg (list ,x)))
@@ -215,37 +220,50 @@
 ;;---------------------------------------------------------------------
 ;; exec exec!
 ;;---------------------------------------------------------------------
-(defmacro exec
+(defun exec (cmd)
   "Execute external command."
-  ([cmd]
-    `(exec-aux__ ,cmd
+    (exec-aux__ cmd
                  '( stream exit_status use_stdio
                     stderr_to_stdout in eof)))
-  ([cmd opts] (when (is_list opts))
-    `(exec-aux__ ,cmd
-                 '( stream exit_status use_stdio
-                    stderr_to_stdout in eof ,@opts)))
-  ([cmd opt]
-    `(exec-aux__ ,cmd
-                 '( stream exit_status use_stdio
-                    stderr_to_stdout in eof ,opt))))
 
-(defmacro exec!-aux__
-  ([res]
-    `(case ,res
-      ([tuple 0 l] (when (> (length l) 1))
-        l)
-      ([tuple 0 l] (when (== (length l) 1))
-        (hd l))
-      ([tuple n l]
-        (error (tuple 'error (tuple 'non_zero_exit_status n l))))
-        )))
+(defun exec (cmd opts)
+  "Execute external command. Any of the options for open_port({spawn,...})
+  can be used. In addition the following options are supported:
 
-(defmacro exec-aux__
-  ([cmd opts]
-    `(-> #(spawn ,cmd)
-        (open_port ,opts)
-        (exec-get-data__ ()))))
+  shell    run command under sh -c \"<command>\"
+  nocolor  strip ANSI color escape codes from output
+  "
+    (exec-aux__ cmd
+                (lists:flatten
+                  (cons opts '(stream exit_status use_stdio
+                     stderr_to_stdout in eof)))))
+
+
+(defun exec-aux__
+  [cmd opts]
+    (-> (lists:member 'shell opts)
+        (if (++ "sh -c \"" cmd "\"") cmd) ;use "sh -c <cmd>" if shell option
+
+        ;execute external command
+        (tuple 'spawn @)
+        (open_port (-- opts '(shell nocolor)))
+        (exec-get-data__ ())
+
+        ;turn iolist into binary
+        (tuple (element 1 @)
+               (iolist_to_binary (element 2 @)))
+
+        ;convert to list if binary was not specified
+        (if (lists:member 'binary opts)
+          @
+          (tuple (element 1 @)
+                 (binary_to_list (element 2 @))))
+
+        ;strip color escape codes if nocolor option
+        (if (lists:member 'nocolor opts)
+          (tuple (element 1 @)
+                 (lbx:nocolor (element 2 @)))
+          @)))
 
 (defun exec-get-data__ (p d)
   (receive
@@ -258,16 +276,26 @@
           ((tuple p (tuple 'exit_status n))
             `#(,n ,(lists:reverse d))))))))
 
-(defmacro str-chop (str)
-  ;We reverse to delete only the last new line
-  `(lists:reverse (-- (lists:reverse ,str) (io_lib:nl))))
+(eval-when-compile
+(defun exec!-aux__
+  (res)
+    `(case ,res
+      ([tuple 0 l]
+        l)
+      ([tuple n l]
+        (error (tuple 'error (tuple 'non_zero_exit_status n l))))))
+)
 
-(defmacro exec!
+(defmacro exec! args
   "Execute external command, calling error(...) if it fails."
-  ([cmd]
-    `(exec!-aux__ (exec ,cmd)))
-  ([cmd opts]
-    `(exec!-aux__ (exec ,cmd ,opts))))
+  `(lbx:chop ,(exec!-aux__ `(lbx:exec ,@args))))
+
+(defun sh (cmd)
+  "Execute shell command, print the output
+   to stdout and return the exit status."
+  (let ((r (exec cmd 'shell)))
+    (format (element 2 r))
+    (element 1 r)))
 
 ;*************************************************************************
 ;*************************************************************************
@@ -434,14 +462,23 @@
    ))
 
 (defmacro fmt
-  ([str args] (when (is_list str))
-  `(lists:flatten (io_lib:format `(,@(color-aux__ ,str)) ,args))))
+  ([list str args]
+      `(lists:flatten (io_lib:format ,str ,args)))
+  ([list str]
+      `(lists:flatten (io_lib:format ,str () ))))
+
+(defun cfmt (fstr args)
+  (-> (lfe_io:format1 (color-aux__ fstr) args)
+      (lists:flatten)))
+
+(defun cfmt (fstr)
+  (cfmt fstr ()))
 
 (defun format (fstr args)
   (lfe_io:format (color-aux__ fstr) args))
 
 (defun format (fstr)
-  (io:format (color-aux__ fstr) () ))
+  (format (color-aux__ fstr) () ))
 
 ;*************************************************************************
 ;*************************************************************************

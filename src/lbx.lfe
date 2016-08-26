@@ -1,17 +1,26 @@
 (defmodule lbx
- (export (ifok! 1)
+ (export
+         (ifok! 1)
          (pr 2)
          (lgi 2)
          (chop 1)
          (spnl 1)
          (getifaddr 0)
          (startpool 1)
+         (cfmt 1)
+         (cfmt 2)
+         (exec 1)
+         (exec 2)
+         (sh 1)
          (format 1)
-         (format 2))
+         (format 2)
+         (nocolor 1)
+         (last 1)
+         )
  (export-macro
-         1st 2nd 3rd 4th 5th 6th 7th 8th 9th 10th take last
+         1st 2nd 3rd 4th 5th 6th 7th 8th 9th 10th take
          -> m> m-> lge
-         exec exec!
+         exec!
          fmt
          color-aux__
          tonodes spraycode)
@@ -146,3 +155,7 @@
        (string:join "."))
 )
 
+(defun nocolor (str)
+  (-> str
+      (re:replace "\e\\[.*?m" "" '(global #(return list)))
+  ))

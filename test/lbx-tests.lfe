@@ -113,12 +113,12 @@
   (is-equal 9
     (lbx:m> (+ 2) (1 (+ 1) (+ 1)))))
 
-(defun cat (x)
+(defun catdot (x)
   (string:concat x "."))
 
 (deftest thread-m->
-  (is-equal "abc.d"
-    (lbx:m-> cat ("abc" (++ "d")))))
+  (is-equal "abc.d.e"
+    (lbx:m-> catdot ("abc" (++ "d") (++ "e")))))
 
 ;---------------- exec tests ------------------------
 (deftest os-exec-one-line
@@ -159,3 +159,5 @@
 (deftest cfmt-fun
  (is-equal "\e[0;31mhi\e[0;34mho\e[0m" (lbx:cfmt (fmt-var-data) (list "ho"))))
 
+(deftest nocolor
+ (is-equal "hiho" (lbx:nocolor "\e[0;31mhi\e[0;34mho\e[0m")))

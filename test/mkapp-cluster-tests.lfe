@@ -69,12 +69,11 @@
     (nosend:start_link)
     (global:sync)))
 
+;; Stop slave node, clean ets
 (defun cluster-tear-down (set-up-result)
-  (progn
-    ;slave node automatically stops when process dies
-    ;because of slave:start_link.
-    ;(gen_server:stop 'cluster) no idea why the gen_server dies before tear-down
-    (ets:delete 'clusterdb)))
+  (slave:stop (rmt-node))
+  (gen_server:stop #(global cluster))
+  (ets:delete 'clusterdb))
 
 (defun global-opt ()
   `(,(is-equal (rmt-node) (node))

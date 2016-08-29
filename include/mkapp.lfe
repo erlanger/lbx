@@ -20,7 +20,7 @@
 (eval-when-compile
   (defun application-aux (appname topsup opts)
     (++ '(progn)
-      ;Produce application module
+      ;;Produce application module
       (list `(defmodule ,appname
               ,(proplists:get_value
                 'doc
@@ -41,7 +41,7 @@
             `(defun stop (State)
               'ok))))
 
-   ; make app file
+   ; make app file - UNUSED
    ; .app file format:
    ;"{application, Application,
    ;    [{description,  \"Description\"},
@@ -78,18 +78,18 @@
 ;;
 ;;---------------------------------------------------------------------
 
-;init returns {ok,  #{strategy  => one_for_one|one_for_all*|rest_for_one|simple_for_one,
-;                     intensity => 5* integer() >= 0,
-;                        period => 10* integer() >= 1} , Children}
-
-;Children= [
-;#{id       := term(),
-;  start    := {M,F,A},
-;  restart  => permanent*|transient|temporary,
-;  shutdown => brutal_kill | 5000* if worker, infinity* if supervisor Timeout:(integer or infinity),
-;  type     => worker*|supervisor,
-;  modules  => [module() M*]|dynamic }
-;
+;;init returns {ok,  #{strategy  => one_for_one|one_for_all*|rest_for_one|simple_for_one,
+;;                     intensity => 5* integer() >= 0,
+;;                        period => 10* integer() >= 1} , Children}
+;;
+;;Children= [
+;;#{id       := term(),
+;;  start    := {M,F,A},
+;;  restart  => permanent*|transient|temporary,
+;;  shutdown => brutal_kill | 5000* if worker, infinity* if supervisor Timeout:(integer or infinity),
+;;  type     => worker*|supervisor,
+;;  modules  => [module() M*]|dynamic }
+;;
 
 (defmacro supervisor args
   "(supervisor <name>
@@ -97,10 +97,10 @@
                 (worker <child-name> start #(<child-name> start_link ())
                   restart permanent shutdown 5000 modules (<child-name>))
 
-                ;supervisor child with default parameters
+                ;;supervisor child with default parameters
                 (supervisor <child-name> <strategy> <children>)
 
-                ;supervisor child with parameters
+                ;;supervisor child with parameters
                 (supervisor (<child-name> start #(<child-name> start_link ())
                   restart permanent shutdown infinity modules (<child-name>)) <strategy> <children>))
 
@@ -109,7 +109,7 @@
                )"
 
   (case (mk-four args)
-    ;supname is an atom
+    ;;supname is an atom
     ([supname children supconfig opts]
       (when (progn (is_list supconfig) (is_list children) (is_atom supname)))
         (let ([r (supervisor-aux supname children supconfig opts)])
@@ -119,60 +119,60 @@
           r)))))
 
 (eval-when-compile
-  ;return list with all elements quotes
+  ;;return list with all elements quotes
   (defun quote-list (lst)
     (lists:map (lambda (e)
                  `(quote ,e))
                lst))
 
-  ;build strategy, intensity, period map
+  ;;build strategy, intensity, period map
   (defun get-supconfig (supconfig)
     `(map ,@(quote-list supconfig)))
 
-  ;make child entry for children array
+  ;;make child entry for children array
   (defun mk-child (type name spec)
     (if (lists:member 'start spec)
-     ;start key already present
+     ;;start key already present
      `(map 'type ',type 'id ,name ,@(quote-list spec))
-     ;build start key
+     ;;build start key
      `(map 'type ',type 'id ',name
         'start ,(tuple name 'start_link ())
         ,@(quote-list spec))))
 
-  ;make children array for init()
+  ;;make children array for init()
   (defun get-children (children)
     `(list ,@(lists:map (match-lambda
-                 ;worker child
+                 ;;worker child
                  ([(cons 'worker rest)]
                    (mk-child 'worker (hd rest) (tl rest)))
 
-                 ;supervisor child without child spec
+                 ;;supervisor child without child spec
                  ([(cons 'supervisor (cons name _))]
                   (when (is_atom name))
                    (mk-child 'supervisor name ()))
 
-                 ;supervisor child with child spec
+                 ;;supervisor child with child spec
                  ([(cons 'supervisor (cons spec-and-name _))]
                   (when (is_list spec-and-name))
                    (mk-child 'supervisor (hd spec-and-name) (tl spec-and-name)))
                )
                children)))
 
-  ;Make supervisor modules for children supervisors
+  ;;Make supervisor modules for children supervisors
   (defun mk-children (children opts0)
     `,(-> (lists:foldl (match-lambda
-                 ;worker child does not generate modules
+                 ;;worker child does not generate modules
                  ([(cons 'worker rest) acc]
                    acc)
 
-                 ;supervisor child without child spec - generate module
+                 ;;supervisor child without child spec - generate module
                  ([(list 'supervisor name children supconfig opts) acc]
                   (when (is_atom name))
                    (cons
                      `(supervisor ,name ,children ,supconfig ,opts0)
                      acc))
 
-                 ;supervisor child with child spec - generate module
+                 ;;supervisor child with child spec - generate module
                  ([(list 'supervisor spec-and-name children supconfig opts) acc]
                   (when (is_list spec-and-name))
                    (cons
@@ -187,7 +187,7 @@
 
   (defun supervisor-aux (supname children supconfig opts0)
     (++ '(progn)
-      ;Produce supervisor module
+      ;;Produce supervisor module
       (list `(defmodule ,supname
               ,(proplists:get_value
                 'doc
@@ -228,37 +228,37 @@
           r)))
 
 (eval-when-compile
-  ;Take elements from a list-of-lists if the first
-  ;item of the inner list matches <match>
+  ;;Take elements from a list-of-lists if the first
+  ;;item of the inner list matches <match>
   (defun filter-on-1st (match lst)
     (lists:filter (lambda (e)
                     (== (hd e) match))
                   lst))
 
-  ;return true if the first element inside a lists-of-lists
-  ;matches <match>
+  ;;return true if the first element inside a lists-of-lists
+  ;;matches <match>
   (defun any (match lst)
     (lists:any (lambda (e)
                  (== (hd e) match))
                lst))
 
-  ;return true if the first element inside a lists-of-lists
-  ;matches <first> and the second element matches <second>
+  ;;return true if the first element inside a lists-of-lists
+  ;;matches <first> and the second element matches <second>
   (defun any-two (first second lst)
     (lists:any (lambda (e)
                  (and (== (hd e) first)
                       (== (lists:nth 2 e) second)))
                lst))
 
-  ;return true if the list-of-lists has
-  ;at least one defun in it: (... (defun <name> ...) ...)
+  ;;return true if the list-of-lists has
+  ;;at least one defun in it: (... (defun <name> ...) ...)
   (defun any-fun (name lst)
     (any-two 'defun name lst))
 
-  ;produce a list with 4 elements even if less than
-  ;four are provided, pad with empty lists.
-  ;used in the genserver macro to
-  ;prevent using a large case statement.
+  ;;produce a list with 4 elements even if less than
+  ;;four are provided, pad with empty lists.
+  ;;used in the genserver macro to
+  ;;prevent using a large case statement.
   (defun mk-four
     ([(list one two three four)] (list one two three four))
     ([(list one two three)]      (list one two three () ))
@@ -270,22 +270,22 @@
     ([(list one two three)]           (list one two three () ()))
     ([(list one two)]                 (list one two () () ())))
 
-  ;make the necessary body code for the handle_* functions
-  ;including trigger code if necessary.
+  ;;make the necessary body code for the handle_* functions
+  ;;including trigger code if necessary.
   (defun get-body (apilst type apiname body)
       (if (or (any-two 'trigger apiname apilst)
               (any 'trigger-all apilst))
         (mk-trigger-code type apiname body)
         body))
 
-  ;make the trigger code, which spawns a process
-  ;which calls the run-triggers function at run-time
-  ;before returning from the handle_* function
+  ;;make the trigger code, which spawns a process
+  ;;which calls the run-triggers function at run-time
+  ;;before returning from the handle_* function
   ;<body> is executed only once
   (defun mk-trigger-code (type apiname body)
-    ;execute body only once and store in variable
+    ;;execute body only once and store in variable
     `(let ((r-aux__ ,body))
-      ;run trigger body in a separate process to prevent blocking
+      ;;run trigger body in a separate process to prevent blocking
       (spawn_link (lambda ()
                    (run-triggers__
                     (tuple
@@ -295,68 +295,67 @@
                      (get-state-from-result ',type r-aux__)
                      r-aux__
                      request))))
-      ;return the result from executing body
+      ;;return the result from executing body
       r-aux__))
 
-  ;make the clauses and the body for the handle_call functions
+  ;;make the clauses and the body for the handle_call functions
   (defun mk-hca-clause
-    ;match-state from 'state-match
-    ;api element (in the main genserver macro call)
+    ;;match-state from 'state-match
+    ;;api element (in the main genserver macro call)
     ([(list 'call name args body) match-state api] (when (is_list args))
       `([(= request (tuple ',name ,@args)) From ,match-state]
            ,(get-body api 'call `',name body)))
-    ;match-state from 'call element
+    ;;match-state from 'call element
     ([(list 'call-match-1 name args match-state body) _ api] (when (is_list args))
       `([(= request (tuple ',name ,@args)) From (= State__ ,match-state)]
            ,(get-body api 'call `',name body)))
-    ;match-msg, match-from and match-state from 'call element
+    ;;match-msg, match-from and match-state from 'call element
     ([(list 'call-match-3 match-msg match-from match-state body) _ api]
       `([(= request ,match-msg) ,match-from (= State__ ,match-state)]
            ,(get-body api 'call `,match-msg body)))
-    ;;;;;
-    ; Same but with docstrings
+    ;; Same but with docstrings
     ([(list 'call name args doc body) match-state api] (when (is_list args))
       `([(= request (tuple ',name ,@args)) From ,match-state]
            ,(get-body api 'call `',name body)))
-    ;match-state from 'call element
+    ;;match-state from 'call element
     ([(list 'call-match-1 name args match-state doc body) _ api] (when (is_list args))
       `([(= request (tuple ',name ,@args)) From (= State__ ,match-state)]
            ,(get-body api 'call `',name body))))
 
-  ;Default clause for unkown call, return
-  ;#(reply #(badcall Request) State)
+  ;;Default clause for unkown call, return
+  ;;#(reply #(badcall Request) State)
   (defun mk-hca-def-clause ()
     `([Request From State__]
         (tuple 'reply
           (tuple 'badcall Request)
           State__)))
 
-  ;make the clauses and the body for the handle_cast functions
+  ;;make the clauses and the body for the handle_cast functions
   (defun mk-hct-clause
-    ;match-state from 'state-match
-    ;api element (in the main genserver macro call)
+    ;;match-state from 'state-match
+    ;;api element (in the main genserver macro call)
     ([(list 'cast name args body) match-state api] (when (is_list args))
       `([(= request (tuple ',name ,@args)) ,match-state]
            ,(get-body api 'cast `',name body)))
-    ;match-state from 'cast element
+    ;;match-state from 'cast element
     ([(list 'cast-match-1 name args match-state body) _ api] (when (is_list args))
       `([(= request (tuple ',name ,@args)) ,match-state]
            ,(get-body api 'cast `',name body)))
-    ;match-request and match-state from 'cast element
+    ;;match-request and match-state from 'cast element
     ([(list 'cast-match-2 match-request match-state body) _ api]
         (when (and (is_list args) (is_list match-state)))
       `([(= request ,match-request) ,match-state]
            ,(get-body api 'cast `,match-request body)))
 
-    ;with doc-strings
+    ;;with doc-strings
     ([(list 'cast name args doc body) match-state api] (when (is_list args))
       `([(= request (tuple ',name ,@args)) ,match-state]
            ,(get-body api 'cast `',name body)))
            )
 
-  ;Default clause for unkown cast
-  ;return #(noreply State)
-  ;and log warning
+  ;;Default clause for unkown cast
+  ;;return #(noreply State)
+  ;;and log warning
   (defun mk-hct-def-clause (srvname)
     `([Request State__]
         (progn
@@ -365,22 +364,22 @@
             (list ',srvname Request))
           (tuple 'noreply State__))))
 
-  ;make the clauses and the body for the handle_call functions
+  ;;make the clauses and the body for the handle_call functions
   (defun mk-hci-clause
-    ;match-state from 'state-match
-    ;api element (in the main genserver macro call)
-    ;match-msg from 'info element
+    ;;match-state from 'state-match
+    ;;api element (in the main genserver macro call)
+    ;;match-msg from 'info element
     ([(list 'info msg body) match-state api]
       `([(= request ,msg) ,match-state]
            ,(get-body api 'info `,msg body)))
-    ;match-state from 'info element
+    ;;match-state from 'info element
     ([(list 'infomatch match-msg match-state body) _ api]
       `([(= request ,match-msg) ,match-state]
            ,(get-body api 'info `,match-msg body))))
 
-  ;Default clause for unkown info msg
-  ;return #(noreply State)
-  ;and log warning
+  ;;Default clause for unkown info msg
+  ;;return #(noreply State)
+  ;;and log warning
   (defun mk-hci-def-clause (srvname)
     `([Msg State__]
         (progn
@@ -389,8 +388,8 @@
             (list ',srvname Msg))
           (tuple 'noreply State__))))
 
-  ;{nodeup, Node} and {nodedown, Node} messages from
-  ;(net_kernel:monitor_nodes 'true)
+  ;;{nodeup, Node} and {nodedown, Node} messages from
+  ;;(net_kernel:monitor_nodes 'true)
   (defun mk-hci-nodeup-clause (srvname opts)
     (if (proplists:get_bool 'no_monitor_nodes opts) ;add nodeup clause if needed
       ()
@@ -414,14 +413,14 @@
                 (list ',srvname Node))
               (tuple 'noreply State__))))))
 
-  ; produce all necessary handle_call functions, e.g.:
-  ;(mk-handle_calls '((call open (door key) (+ door key))
-  ;                    (1 2 3)
-  ;                    (call close (door key) (- door key))))
-  ; produces:
-  ; (defun handle_call
-  ;    (((tuple 'open door key) From State) (+ door key))
-  ;    (((tuple 'close door key) From State) (- door key)))
+  ;; produce all necessary handle_call functions, e.g.:
+  ;;(mk-handle_calls '((call open (door key) (+ door key))
+  ;;                    (1 2 3)
+  ;;                    (call close (door key) (- door key))))
+  ;; produces:
+  ;; (defun handle_call
+  ;;    (((tuple 'open door key) From State) (+ door key))
+  ;;    (((tuple 'close door key) From State) (- door key)))
   (defun mk-handle_calls (api)
     (if (or (any 'call api)
             (or (any 'call-match-1 api)
@@ -437,7 +436,7 @@
         (list (mk-hca-def-clause)))))
       ))
 
-  ; produce all necessary handle_cast functions, e.g.:
+  ;; produce all necessary handle_cast functions, e.g.:
   (defun mk-handle_casts (srvname lst)
     (if (or (any 'cast lst)
             (any 'cast-match-1 lst))
@@ -451,7 +450,7 @@
         (list (mk-hct-def-clause srvname)))))
       ))
 
-  ; produce all necessary handle_info functions, e.g.:
+  ;; produce all necessary handle_info functions, e.g.:
   (defun mk-handle_infos (srvname lst)
     (if (any 'info lst)
       (list (cons 'defun (cons 'handle_info
@@ -468,7 +467,7 @@
             (list (mk-hci-def-clause srvname))))))
       ))
 
-  ; make a call to spray_api only if it is defined
+  ;; make a call to spray_api only if it is defined
   (defun mk-spray_api-call (srvname api opts)
     (if (and (not (proplists:get_bool 'no_send_api opts))
              (or (any 'call api)
@@ -477,17 +476,32 @@
       ())
   )
 
-  ; produce gen_server init function
+  ;; make definition of init function
+  (defun mk-init-aux (init-args init-body srvname api opts)
+    (list 'defun 'init `,init-args
+      `(progn
+         ,(if (proplists:get_bool 'no_monitor_nodes opts) ;add monitor_node call if needed
+            ()
+            `(list (net_kernel:monitor_nodes 'true)
+  				     ,(mk-spray_api-call srvname api opts)))
+         ,init-body)))
+
+  ;; produce gen_server init function
   (defun mk-init (srvname api opts)
     (list
       (if (any 'init api)
-        (list 'defun 'init '(Args)
-          `(progn
-             ,(if (proplists:get_bool 'no_monitor_nodes opts) ;add monitor_node call if needed
-                ()
-                `(list (net_kernel:monitor_nodes 'true)
-						     ,(mk-spray_api-call srvname api opts)))
-             ,(lists:nth 2 (hd (filter-on-1st 'init api)))))
+        ;;User specified init
+        (let ((init-spec (hd (filter-on-1st 'init api))))
+          (if (init-has-args api)
+            ;;User specified init with args
+            (mk-init-aux (lists:nth 2 init-spec)
+                         (lists:nth 3 init-spec)
+                         srvname api opts)
+            ;;User specified init with no args
+            (mk-init-aux '(Args)
+                         (lists:nth 2 init-spec)
+                         srvname api opts)))
+        ;;Default init - no init provided by user
         (list 'defun 'init '(Args)
           `(progn
              ,(if (proplists:get_bool 'no_monitor_nodes opts) ;add monitor_node call if needed
@@ -505,8 +519,8 @@
         (list 'defun 'terminate '(Reason State__)
           #(ok)))))
 
-  ;Group calls by name and number of arguments in the call
-  ;type is 'call or 'cast; returns an orddict
+  ;;Group calls by name and number of arguments in the call
+  ;;type is 'call or 'cast; returns an orddict
   (defun grp-apicalls (type api)
     (lists:foldl (match-lambda
                    ([(list type name args body) dict]
@@ -520,8 +534,8 @@
                  (orddict:new)
                  (filter-on-1st type api)))
 
-  ;produce clauses and body for the functions that
-  ;go into the separate api module
+  ;;produce clauses and body for the functions that
+  ;;go into the separate api module
   (defun mk-api-clauses (srvname type name arity opts dict)
     (lists:foldl
       (match-lambda
@@ -536,8 +550,8 @@
         (tuple name arity)
         dict)))
 
-  ;produce the functions that
-  ;go into the separate api module
+  ;;produce the functions that
+  ;;go into the separate api module
   (defun mk-apimod-funs (srvname type api opts)
     (if (any type api)
       (lists:map
@@ -549,34 +563,69 @@
           (grp-apicalls type api)))
       ()))
 
-  ;produce the gen_server start_link function
-  ;honoring the gproc|public|local options
+  ;; Get the args from the init specification
+  ;; or empty if not specified
+  (defun get-init-args (api type)
+    (if (any 'init api)
+      (let ((init-spec (hd (filter-on-1st 'init api))))
+        (if (init-has-args api)
+          ;;User-specified init argument
+          (if (== 'list type)
+            `(list ,(hd (lists:nth 2 init-spec)))
+            (lists:nth 2 init-spec))
+          ;;Empty arg if init specification had no args
+          ()))
+      ;;Empty arg if no init specified
+      ()))
+
+  ;;Return true if user specified args for init spec
+  (defun init-has-args (api)
+    (if (any 'init api)
+      (-> (filter-on-1st 'init api) hd length (== 3))
+      'false))
+
+  (defun get-init-args (api)
+    (get-init-args api 'formal))
+
+  ;;produce the gen_server start_link function
+  ;;honoring the gproc|public|local options
   (defun mk-start-link (api opts)
       (if (any-fun 'start_link rst)
         ()
         (if (proplists:get_bool 'global opts)
-          (list `(defun start_link ()
-                  (gen_server:start_link #(global ,srvname) ',srvname () ())))
+          (list `(defun start_link ,(get-init-args api)
+                  (gen_server:start_link
+                    #(global ,srvname) ',srvname ,(get-init-args api 'list) () )))
           (if (proplists:get_bool 'gproc opts)
-            (list `(defun start_link ()
-                    (gen_server:start_link #(via gproc ,srvname) ',srvname () ())))
+            (list `(defun start_link ,(get-init-args api)
+                    (gen_server:start_link
+                      #(via gproc ,srvname) ',srvname
+                      ,(get-init-args api 'list) () )))
             (if (!= 'undefined (proplists:get_value 'gproc opts 'undefined))
-              (list `(defun start_link ()
+              (list `(defun start_link ,(get-init-args api)
                       (gen_server:start_link
                         #(via gproc ,(proplists:get_value 'gproc opts))
-                        ',srvname () ())))
-              (list `(defun start_link ()
-                      (gen_server:start_link #(local ,srvname) ',srvname () ()))))))))
+                        ',srvname  ,(get-init-args api 'list) ())))
 
-  ;Get the pattern match for the state from
-  ;the 'state-match ;element in the api description
+              (if (proplists:get_bool 'local opts)
+                (list `(defun start_link ,(get-init-args api)
+                        (gen_server:start_link
+                          #(local ,srvname) ',srvname
+                          ,(get-init-args api 'list) () )))
+                (list `(defun start_link ,(get-init-args api)
+                        (gen_server:start_link
+                          ',srvname
+                          ,(get-init-args api 'list) () )))))))))
+
+  ;;Get the pattern match for the state from
+  ;;the state-match specification in the api description
   (defun get-match-state-aux__ (api)
     (if (any 'state-match api)
       `(= State__ ,(lists:nth 2 (hd (filter-on-1st 'state-match api))))
       'State__))
 
-  ;Get api module name from #(api-module <name>) in opts or
-  ; return <srvname>_api
+  ;;Get api module name from #(api-module <name>) in opts or
+  ;; return <srvname>_api
   (defun get-api-modname (srvname opts)
     (let ([n (proplists:get_value 'api-module opts 'undefined)])
       (if (== 'undefined n)
@@ -585,8 +634,8 @@
                         "_api"))
         n)))
 
-  ;Get the gen_server registered name to use
-  ;in gen_server:call or cast
+  ;;Get the gen_server registered name to use
+  ;;in gen_server:call or cast
   (defun get-reg-name (srvname opts)
     (if (proplists:get_bool 'global opts)
       `#(global ,srvname)
@@ -596,8 +645,8 @@
           `#(via gproc ,(proplists:get_value 'gproc opts))
           `',srvname))))
 
-  ;extract the state from the result of executing
-  ;the user's code for each api call (i.e. from #(reply Reply State)..)
+  ;;extract the state from the result of executing
+  ;;the user's code for each api call (i.e. from #(reply Reply State)..)
   (defun mk-get-state-from-result (srvname api opts)
     (if (any 'trigger api)
       (list `(defun get-state-from-result
@@ -626,14 +675,14 @@
             ))))
       ()))
 
-  ;produce the run-triggers function; needed at run-time to process triggers.
-  ;Also generates the following utility macros for the user:
+  ;;produce the run-triggers function; needed at run-time to process triggers.
+  ;;Also generates the following utility macros for the user:
   ; - get_reply: to get the result of executing the body for
   ;              the api call that caused the trigger
   ; - get-args: to get a list of the arguments passed to the api call
   ;             that caused the trigger
-  ;Produces trigger debugging printrouts if trigger_debug is specified in the opts
-  ;for the genserver macro call
+  ;;Produces trigger debugging printrouts if trigger_debug is specified in the opts
+  ;;for the genserver macro call
   ;(defun run-triggers
   ;  ((type old-state-match new-state-match body-result call-args) {{(when guard)}}
   ;    ...)
@@ -719,7 +768,7 @@
 
   (defun mk-api-module (srvname api opts rst)
     (++
-        ;Produce api module only if there is any call or cast
+        ;;Produce api module only if there is any call or cast
         (list `(defmodule ,(get-api-modname srvname opts)
                  "This is the API module, it contains the user visible callable
                   functions, which are generally calls or casts. The global or gproc
@@ -731,7 +780,7 @@
         (mk-apimod-funs srvname 'call api opts)
         (mk-apimod-funs srvname 'cast api opts)
 
-        ;function to send api module to all connected nodes
+        ;;function to send api module to all connected nodes
         (if (any-fun 'spray_api rst)
           ()
           (list `(defun spray_api ()
@@ -741,18 +790,18 @@
                    if the global or gproc options are used to register the _genserver_."
                   (tonodes ',(get-api-modname srvname opts)))))))
 
-  ;generates the gen_server module, its corresponding api module
-  ;and all the necessary functions.
+  ;;generates the gen_server module, its corresponding api module
+  ;;and all the necessary functions.
   (defun genserver-aux__ (srvname api opts rst)
     (++ '(progn)
-      ;Produce api module only if there is any call or cast
+      ;;Produce api module only if there is any call or cast
       (if (or (any 'call api)
               (any 'cast api))
         (mk-api-module srvname api opts rst)
         ())
 
 
-      ;Produce genserver module
+      ;;Produce genserver module
       (list `(defmodule ,srvname
               ,(proplists:get_value
                 'doc
@@ -769,33 +818,33 @@
                       (handle_info 2)
                       (init 1)
                       (terminate 2)
-                      (start_link 0)
+                      (start_link ,(if (init-has-args api) 1 0))
               )))
 
       (list '(defmacro state () 'State__))
 
       (mk-start-link api opts)
 
-      ;We use ++ so that if any of these functions return an empty
-      ;list they will dissapear in the final result
-      ;This also requires that the previous elements be wrapped in a
-      ;list
+      ;;We use ++ so that if any of these functions return an empty
+      ;;list they will dissapear in the final result
+      ;;This also requires that the previous elements be wrapped in a
+      ;;list
       (mk-init srvname api opts)
       (mk-terminate api)
       (mk-handle_calls api)
       (mk-handle_casts srvname api)
       (mk-handle_infos srvname api)
 
-      ;User-defined functions, etc.
+      ;;User-defined functions, etc.
       rst
 
-      ;code_change fun if it has not been specified by user in rst
+      ;;code_change fun if it has not been specified by user in rst
       (if (any-fun 'code_change rst)
         ()
         (list `(defun code_change (oldvsn State__ Extra)
                 (tuple 'ok State__))))
 
-      ;Used by triggers - auxiliary function
+      ;;Used by triggers - auxiliary function
       (mk-get-state-from-result srvname api opts)
       (mk-trigger-aux srvname api opts)
 

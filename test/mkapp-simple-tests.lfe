@@ -115,7 +115,7 @@
       (sys:get_state (cadr sres)))))
 
 ;;Function names here need to use _ instead of - because
-;;otherwise eunit breaks
+;;otherwise eunit breaks when parsing string from fun_info
 ;;see https://github.com/erlang/otp/blob/maint/lib/eunit/src/eunit_lib.erl#L383
 (defun initargs_test_maker (sres)
   "Generate a list of tests for the initargs genserver."
@@ -124,8 +124,7 @@
      ,(tuple "Initial state server 2" (lambda() (initargs_initial_state_2 sres)))
      ,(tuple "initargs genserver not registered" (lambda() (initargs_not_registered sres)))
      ,(tuple "Server 1 call" (lambda() (initargs_call_1 sres)))
-     ,(tuple "Server 2 call" (lambda() (initargs_call_2 sres)))
-	))
+     ,(tuple "Server 2 call" (lambda() (initargs_call_2 sres)))))
 
 (deftestgen initargs-run
   `#(setup

@@ -534,17 +534,26 @@
                  (orddict:new)
                  (filter-on-1st type api)))
 
+  ;;get extra args needed for api module functions
+  ;;when start_link has extra arguments - it returns
+  ;;nil if the init spec has no extra arguments, or srvr-ref__ if
+  ;;it does
+  (defun get-apifunc-extra-args (api srvr-ref)
+    (if (== 'srvr-ref srvr-ref)
+      '(srvr-ref__)
+      ()))
+
   ;;produce clauses and body for the functions that
   ;;go into the separate api module
-  (defun mk-api-clauses (srvname type name arity opts dict)
+  (defun mk-api-clauses (srvname type name arity opts dict srvr-ref)
     (lists:foldl
       (match-lambda
         ([(list type name args body) acc]
-          (list (++ acc (list args
-            `(: gen_server ,type ,(get-reg-name srvname opts) (tuple ',name ,@args))))))
+          (list (++ acc (list (++ (get-apifunc-extra-args api srvr-ref) args)
+            `(: gen_server ,type ,(get-reg-name srvname opts srvr-ref) (tuple ',name ,@args))))))
         ([(list type name args doc body) acc]
-          (cons doc (list (++ acc (list args
-            `(: gen_server ,type ,(get-reg-name srvname opts) (tuple ',name ,@args))))))))
+          (cons doc (list (++ acc (list (++ (get-apifunc-extra-args api srvr-ref) args)
+            `(: gen_server ,type ,(get-reg-name srvname opts srvr-ref) (tuple ',name ,@args))))))))
       ()
       (orddict:fetch
         (tuple name arity)
@@ -552,13 +561,13 @@
 
   ;;produce the functions that
   ;;go into the separate api module
-  (defun mk-apimod-funs (srvname type api opts)
+  (defun mk-apimod-funs (srvname type api opts srvr-ref)
     (if (any type api)
       (lists:map
         (match-lambda
           ([(tuple name noargs)]
             `(defun ,name
-              ,@(mk-api-clauses srvname type name noargs opts (grp-apicalls type api)))))
+              ,@(mk-api-clauses srvname type name noargs opts (grp-apicalls type api) srvr-ref))))
         (orddict:fetch_keys
           (grp-apicalls type api)))
       ()))
@@ -636,14 +645,25 @@
 
   ;;Get the gen_server registered name to use
   ;;in gen_server:call or cast
-  (defun get-reg-name (srvname opts)
-    (if (proplists:get_bool 'global opts)
-      `#(global ,srvname)
-      (if (proplists:get_bool 'gproc opts)
-        `#(via gproc ,srvname)
-        (if (!= 'undefined (proplists:get_value 'gproc opts 'undefined))
-          `#(via gproc ,(proplists:get_value 'gproc opts))
-          `',srvname))))
+  (defun get-reg-name (srvname opts type)
+    (if (== 'srvr-ref type)
+      'srvr-ref__
+      (if (proplists:get_bool 'global opts)
+        `#(global ,srvname)
+        (if (proplists:get_bool 'gproc opts)
+          `#(via gproc ,srvname)
+          (if (!= 'undefined (proplists:get_value 'gproc opts 'undefined))
+            `#(via gproc ,(proplists:get_value 'gproc opts))
+            (if (proplists:get_bool 'nolocal opts)
+              (error #(unexpected-bug srvr-ref-needed-if-no-registration-option)
+              `',srvname)))))))
+
+  ;;Return true if any of the server registration
+  ;;options has been given
+  (defun has-reg-opt (opts)
+    (or (proplists:is_defined 'global opts)
+        (or (proplists:is_defined 'gproc opts)
+            (proplists:is_defined 'local opts))))
 
   ;;extract the state from the result of executing
   ;;the user's code for each api call (i.e. from #(reply Reply State)..)
@@ -753,18 +773,52 @@
       )
       ()))
 
+  ;;Api functions without user specified server reference
+  ;;are produced if server registration options
+  ;;were specified (e.g. local, global, etc) or if the init
+  ;;specification has more than one argument
+  ;; if there are no init spec arguments, and no registration
+  ;; options, local registration is added automatically
+  (defun mk-plain-apifuns? (api opts)
+    (and (or (any 'call api)
+             (any 'cast api))
+         (and (not (proplists:get_bool 'nolocal opts))
+              (or  (has-reg-opt opts)
+                   (not (init-has-args api))))))
+
+  ;;Api functions with user specified server reference are
+  ;;makde if the init specification has arguments
+  (defun mk-srvr-ref-apifuns? (api opts)
+    (and (or (any 'call api)
+             (any 'cast api))
+         (init-has-args api)))
+
   (defun mk-export (api opts rst)
-    (if (or (any 'call api)
-            (any 'cast api))
+    (if (or (mk-plain-apifuns? api opts)
+            (mk-srvr-ref-apifuns? api opts))
       `(export
          (spray_api 0)
-        ,@(lists:map
-          (match-lambda
-           ([(tuple name noargs)]
-            `(,name ,noargs)))
-          (++ (orddict:fetch_keys (grp-apicalls 'call api))
-              (orddict:fetch_keys (grp-apicalls 'cast api)))))
-      ()))
+         ,@(++
+             (if (mk-plain-apifuns? api opts)
+               (lc ((<- (tuple name noargs)
+                        (++ (orddict:fetch_keys (grp-apicalls 'call api))
+                            (orddict:fetch_keys (grp-apicalls 'cast api)))))
+                 `(,name ,noargs))
+               ())
+             (if (mk-srvr-ref-apifuns? api opts)
+               (lc ((<- (tuple name noargs)
+                    (++ (orddict:fetch_keys (grp-apicalls 'call api))
+                        (orddict:fetch_keys (grp-apicalls 'cast api)))))
+                 `(,name ,(+ 1 noargs)))
+               ())))))
+
+        ;lists:map
+        ;  (match-lambda
+        ;   ([(tuple name noargs)]
+        ;    `(,name ,noargs)))
+        ;  (++ (orddict:fetch_keys (grp-apicalls 'call api))
+        ;      (orddict:fetch_keys (grp-apicalls 'cast api)))))
+        ;      ()))
 
   (defun mk-api-module (srvname api opts rst)
     (++
@@ -777,8 +831,19 @@
                 ,(mk-export api opts rst)
                 ;(export all)
                 ))
-        (mk-apimod-funs srvname 'call api opts)
-        (mk-apimod-funs srvname 'cast api opts)
+
+        ;;See mk-plain-apifuns? to learn when they are built
+        (if (mk-plain-apifuns? api opts)
+          (++ (mk-apimod-funs srvname 'call api opts 'no-srvr-ref)
+              (mk-apimod-funs srvname 'cast api opts 'no-srvr-ref))
+          ())
+
+        ;;api functions with user specified server reference
+        ;;only if the init specification has arguments
+        (if (mk-srvr-ref-apifuns? api opts)
+          (++ (mk-apimod-funs srvname 'call api opts 'srvr-ref)
+              (mk-apimod-funs srvname 'cast api opts 'srvr-ref))
+          ())
 
         ;;function to send api module to all connected nodes
         (if (any-fun 'spray_api rst)

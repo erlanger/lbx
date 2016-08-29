@@ -580,7 +580,7 @@
         (if (init-has-args api)
           ;;User-specified init argument
           (if (== 'list type)
-            `(list ,(hd (lists:nth 2 init-spec)))
+            `,(hd (lists:nth 2 init-spec))
             (lists:nth 2 init-spec))
           ;;Empty arg if init specification had no args
           ()))

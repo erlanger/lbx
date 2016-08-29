@@ -90,21 +90,46 @@
   (gen_server:stop pid1)
   (gen_server:stop pid2)))
 
-(deftestcase initargs-initial-state-1 (sres)
-  (tuple "Initial state server 1"
-    (is-equal #(bucket-one undefined)
-              (sys:get_state (car sres)))))
+(defun initargs_initial_state_1 (sres)
+  (is-equal #(bucket-one undefined)
+             (sys:get_state (car sres))))
 
-(deftestcase initargs-initial-state-2 (sres)
-  (tuple "Initial state server 2"
-    (is-equal #(bucket-two undefined)
-              (sys:get_state (cadr sres)))))
+(defun initargs_initial_state_2 (sres)
+  (is-equal #(bucket-two undefined)
+            (sys:get_state (cadr sres))))
 
-(deftestgen initargs-cases
-  `#(foreach
-     ,(defsetup initargs-set-up)
-     ,(defteardown initargs-tear-down)
-     ,(deftestcases
-         initargs-initial-state-1
-         initargs-initial-state-1
-         )))
+(defun initargs_not_registered (sres)
+  (is-not (lists:member 'initargs (global:registered_names)))
+  (is-not (lists:member 'initargs1 (registered))))
+
+(defun initargs_call_1 (sres)
+  (is-equal #(bucket-one 555)
+    (progn
+      (initargs_api:store (car sres) 555)
+      (sys:get_state (car sres)))))
+
+(defun initargs_call_2 (sres)
+  (is-equal #(bucket-two 777)
+    (progn
+      (initargs_api:store (cadr sres) 777)
+      (sys:get_state (cadr sres)))))
+
+;;Function names here need to use _ instead of - because
+;;otherwise eunit breaks
+;;see https://github.com/erlang/otp/blob/maint/lib/eunit/src/eunit_lib.erl#L383
+(defun initargs_test_maker (sres)
+  "Generate a list of tests for the initargs genserver."
+  `(
+     ,(tuple "Initial state server 1" (lambda() (initargs_initial_state_1 sres)))
+     ,(tuple "Initial state server 2" (lambda() (initargs_initial_state_2 sres)))
+     ,(tuple "initargs genserver not registered" (lambda() (initargs_not_registered sres)))
+     ,(tuple "Server 1 call" (lambda() (initargs_call_1 sres)))
+     ,(tuple "Server 2 call" (lambda() (initargs_call_2 sres)))
+	))
+
+(deftestgen initargs-run
+  `#(setup
+      ,(defsetup initargs-set-up)
+      ,(defteardown initargs-tear-down)
+		,#'initargs_test_maker/1
+      ))

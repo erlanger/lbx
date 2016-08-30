@@ -83,14 +83,16 @@
          )))
 
 ;;------------------------------------
-;; Tests for init with arguments
-;; - run several gen_servers
-;;   of the same type
+;; Tests for multi-instace server
+;; - runs three servers of the same type
+;;   bucket-one and bucket-two not registered
+;;   and bucket-three with custom registration
 ;;------------------------------------
 (defun multi_instance-set-up ()
   (noglobal:start_link)
-  `(,(2nd (multi_instance:start_link 'bucket-one))
-    ,(2nd (multi_instance:start_link 'bucket-two))))
+  (multi_instance:start_link #(local buck3) 'bucket-three) ;custom registration
+  `(,(2nd (multi_instance:start_link 'bucket-one))   ;no registration
+    ,(2nd (multi_instance:start_link 'bucket-two)))) ;no registration
 
 (defun multi_instance-tear-down ([(list pid1 pid2)]
   (gen_server:stop 'noglobal)
@@ -105,9 +107,16 @@
   (is-equal #(bucket-two undefined)
             (sys:get_state (cadr sres))))
 
+(defun multi_instance_initial_state_3 (sres)
+  (is-equal #(bucket-three undefined)
+            (sys:get_state 'buck3)))
+
 (defun multi_instance_not_registered (sres)
   (is-not (lists:member 'multi_instance (global:registered_names)))
-  (is-not (lists:member 'multi_instance1 (registered))))
+  (is-not (lists:member 'multi_instance (registered))))
+
+(defun multi_instance_local_registered (sres)
+  (is (lists:member 'buck3 (registered))))
 
 (defun multi_instance_call_1 (sres)
   (is-equal #(bucket-one 555)
@@ -120,6 +129,12 @@
     (progn
       (multi_instance_api:store (cadr sres) 777)
       (sys:get_state (cadr sres)))))
+
+(defun multi_instance_call_3 (sres)
+  (is-equal #(bucket-three 999)
+    (progn
+      (multi_instance_api:store 'buck3 999)
+      (sys:get_state 'buck3))))
 
 ;; Check no registration options enables local registration
 (defun no_reg_opts ()
@@ -135,9 +150,12 @@
   `(
      ,(tuple "Initial state server 1" (lambda() (multi_instance_initial_state_1 sres)))
      ,(tuple "Initial state server 2" (lambda() (multi_instance_initial_state_2 sres)))
+     ,(tuple "Initial state server 3" (lambda() (multi_instance_initial_state_3 sres)))
      ,(tuple "multi_instance genserver not registered" (lambda() (multi_instance_not_registered sres)))
+     ,(tuple "multi_instance local registered" (lambda() (multi_instance_local_registered sres)))
      ,(tuple "Server 1 call" (lambda() (multi_instance_call_1 sres)))
      ,(tuple "Server 2 call" (lambda() (multi_instance_call_2 sres)))
+     ,(tuple "Server 3 call" (lambda() (multi_instance_call_3 sres)))
      ,(tuple "Local reg enabled by default" #'no_reg_opts/0)))
 
 (deftestgen multi_instance-run

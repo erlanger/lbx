@@ -574,6 +574,13 @@
           (grp-apicalls type api)))
       ()))
 
+  ;;produce defun for start_link/2
+  (defun mk-srvr-ref-start-link (srvname api opts)
+    (if (proplists:get_bool 'multi opts)
+      (list `(defun start_link (srvr-reg initarg)
+        (gen_server:start_link srvr-reg ',srvname initarg () )))
+      ()))
+
   ;; Get the args from the init specification
   ;; or empty if not specified
   (defun get-init-args (api type)
@@ -598,14 +605,15 @@
   (defun get-init-args (api)
     (get-init-args api 'formal))
 
-  (defun mk-start-link-def (srvname api opts funargs reg initargs)
+  ;;produce defun for start_link/1
+  (defun mk-start-link-def (srvname api opts funargs reg initarg)
     (if (!= 'undefined reg)
       (list `(defun start_link ,funargs
               (gen_server:start_link
-                ,reg ',srvname ,initargs () )))
+                ,reg ',srvname ,initarg () )))
       (list `(defun start_link ,funargs
               (gen_server:start_link
-                ',srvname ,initargs () )))))
+                ',srvname ,initarg () )))))
 
   ;;produce the gen_server start_link function
   ;;honoring the gproc|public|local options
@@ -886,12 +894,16 @@
                       (handle_info 2)
                       (init 1)
                       (terminate 2)
-                      (start_link ,(if (init-has-args api) 1 0))
+                      ,@(++ (list `(start_link ,(if (init-has-args api) 1 0)))
+                           (if (proplists:get_bool 'multi opts)
+                             (list '(start_link 2))
+                             ()))
               )))
 
       (list '(defmacro state () 'State__))
 
       (mk-start-link srvname api opts)
+      (mk-srvr-ref-start-link srvname api opts)
 
       ;;We use ++ so that if any of these functions return an empty
       ;;list they will dissapear in the final result

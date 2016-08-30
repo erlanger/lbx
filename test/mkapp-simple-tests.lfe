@@ -20,7 +20,7 @@
    (init (server-bucket)
      `#(ok ,(tuple server-bucket 'undefined)))
   ) ;end of api
-  (print)
+  (print multi)
 )
 
 

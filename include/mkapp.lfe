@@ -550,10 +550,10 @@
       (match-lambda
         ([(list type name args body) acc]
           (list (++ acc (list (++ (get-apifunc-extra-args api srvr-ref) args)
-            `(: gen_server ,type ,(get-reg-name srvname opts srvr-ref) (tuple ',name ,@args))))))
+            `(: gen_server ,type ,(get-reg-name srvname api opts srvr-ref) (tuple ',name ,@args))))))
         ([(list type name args doc body) acc]
           (cons doc (list (++ acc (list (++ (get-apifunc-extra-args api srvr-ref) args)
-            `(: gen_server ,type ,(get-reg-name srvname opts srvr-ref) (tuple ',name ,@args))))))))
+            `(: gen_server ,type ,(get-reg-name srvname api opts srvr-ref) (tuple ',name ,@args))))))))
       ()
       (orddict:fetch
         (tuple name arity)
@@ -596,35 +596,25 @@
   (defun get-init-args (api)
     (get-init-args api 'formal))
 
+  (defun mk-start-link-def (srvname api opts funargs reg initargs)
+    (if (!= 'undefined reg)
+      (list `(defun start_link ,funargs
+              (gen_server:start_link
+                ,reg ',srvname ,initargs () )))
+      (list `(defun start_link ,funargs
+              (gen_server:start_link
+                ',srvname ,initargs () )))))
+
   ;;produce the gen_server start_link function
   ;;honoring the gproc|public|local options
-  (defun mk-start-link (api opts)
-      (if (any-fun 'start_link rst)
-        ()
-        (if (proplists:get_bool 'global opts)
-          (list `(defun start_link ,(get-init-args api)
-                  (gen_server:start_link
-                    #(global ,srvname) ',srvname ,(get-init-args api 'list) () )))
-          (if (proplists:get_bool 'gproc opts)
-            (list `(defun start_link ,(get-init-args api)
-                    (gen_server:start_link
-                      #(via gproc ,srvname) ',srvname
-                      ,(get-init-args api 'list) () )))
-            (if (!= 'undefined (proplists:get_value 'gproc opts 'undefined))
-              (list `(defun start_link ,(get-init-args api)
-                      (gen_server:start_link
-                        #(via gproc ,(proplists:get_value 'gproc opts))
-                        ',srvname  ,(get-init-args api 'list) ())))
-
-              (if (proplists:get_bool 'local opts)
-                (list `(defun start_link ,(get-init-args api)
-                        (gen_server:start_link
-                          #(local ,srvname) ',srvname
-                          ,(get-init-args api 'list) () )))
-                (list `(defun start_link ,(get-init-args api)
-                        (gen_server:start_link
-                          ',srvname
-                          ,(get-init-args api 'list) () )))))))))
+  (defun mk-start-link (srvname api opts)
+    (if (any-fun 'start_link rst)
+      ()
+        (mk-start-link-def srvname api opts
+          (get-init-args api) ;start-link func. args
+          (get-reg-name srvname api  opts 'no-srvr-ref) ;reg name
+          (get-init-args api 'list)) ;args passed to init
+          ))
 
   ;;Get the pattern match for the state from
   ;;the state-match specification in the api description
@@ -645,25 +635,40 @@
 
   ;;Get the gen_server registered name to use
   ;;in gen_server:call or cast
-  (defun get-reg-name (srvname opts type)
+  (defun get-reg-name (srvname api opts type)
+    ;;We have three types:
+    ;;  'srvr-ref       : for user specified server ref (for apimod funs and start_link)
+    ;;  'no-srvr-ref    : when opts specify the registration
+    ;;  'api-no-srvr-ref: same as 'no-srvr-ref but for apimod funs
+    ;;                    Needed b/c gen_server:call uses <name> and start_link
+    ;;                     uses #(local <name>))
     (if (== 'srvr-ref type)
       'srvr-ref__
       (if (proplists:get_bool 'global opts)
         `#(global ,srvname)
         (if (proplists:get_bool 'gproc opts)
-          `#(via gproc ,srvname)
+          `#(via gproc ,`#(n l ,srvname))
           (if (!= 'undefined (proplists:get_value 'gproc opts 'undefined))
             `#(via gproc ,(proplists:get_value 'gproc opts))
-            (if (proplists:get_bool 'nolocal opts)
-              (error #(unexpected-bug srvr-ref-needed-if-no-registration-option)
-              `',srvname)))))))
+            (if (proplists:get_bool 'local opts)
+              ;gen_server:call != ..:start_link so we need next if
+              (if (== 'api-no-srvr-ref type) `',srvname `#(local ,srvname))
+              (if (or (proplists:get_bool 'noreg opts)
+                      (proplists:get_bool 'multi opts))
+                'undefined ;no registration
+                (if (== 'api-no-srvr-ref type) ;gen_server:call != ..:start_link
+                  `',srvname
+                  `#(local ,srvname)))))))))
 
   ;;Return true if any of the server registration
-  ;;options has been given
-  (defun has-reg-opt (opts)
+  ;;options has been given or if the local option
+  ;;is used by default
+  (defun has-reg (opts)
     (or (proplists:is_defined 'global opts)
         (or (proplists:is_defined 'gproc opts)
-            (proplists:is_defined 'local opts))))
+            (or (proplists:is_defined 'local opts)
+                (not (or (proplists:get_bool 'noreg opts)
+                         (proplists:get_bool 'multi opts)))))))
 
   ;;extract the state from the result of executing
   ;;the user's code for each api call (i.e. from #(reply Reply State)..)
@@ -775,23 +780,19 @@
 
   ;;Api functions without user specified server reference
   ;;are produced if server registration options
-  ;;were specified (e.g. local, global, etc) or if the init
-  ;;specification has more than one argument
-  ;; if there are no init spec arguments, and no registration
-  ;; options, local registration is added automatically
+  ;;were specified (e.g. local, global, etc) or if the
+  ;;local option is enabled by default.
   (defun mk-plain-apifuns? (api opts)
     (and (or (any 'call api)
              (any 'cast api))
-         (and (not (proplists:get_bool 'nolocal opts))
-              (or  (has-reg-opt opts)
-                   (not (init-has-args api))))))
+         (has-reg opts)))
 
   ;;Api functions with user specified server reference are
-  ;;makde if the init specification has arguments
+  ;;made if the multi or noreg options were specified
   (defun mk-srvr-ref-apifuns? (api opts)
     (and (or (any 'call api)
              (any 'cast api))
-         (init-has-args api)))
+         (not (has-reg opts))))
 
   (defun mk-export (api opts rst)
     (if (or (mk-plain-apifuns? api opts)
@@ -834,8 +835,8 @@
 
         ;;See mk-plain-apifuns? to learn when they are built
         (if (mk-plain-apifuns? api opts)
-          (++ (mk-apimod-funs srvname 'call api opts 'no-srvr-ref)
-              (mk-apimod-funs srvname 'cast api opts 'no-srvr-ref))
+          (++ (mk-apimod-funs srvname 'call api opts 'api-no-srvr-ref)
+              (mk-apimod-funs srvname 'cast api opts 'api-no-srvr-ref))
           ())
 
         ;;api functions with user specified server reference
@@ -888,7 +889,7 @@
 
       (list '(defmacro state () 'State__))
 
-      (mk-start-link api opts)
+      (mk-start-link srvname api opts)
 
       ;;We use ++ so that if any of these functions return an empty
       ;;list they will dissapear in the final result

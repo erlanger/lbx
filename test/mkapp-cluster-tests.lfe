@@ -22,14 +22,6 @@
   (print global no_send_api)
 )
 
-(genserver noglobal
-  ((info (tuple 'store val)
-     `#(noreply ,val))
-
-  ) ;end of api
-  (print)
-)
-
 
 ;Anything here goes in the info module
 
@@ -98,11 +90,8 @@
        (is-equal 'ok (cluster_api:cstore 777))
        (is-equal '777 (sys:get_state #(global cluster))))))
 
-
-;(deftestcase cluster-initial-state (sres)
-; (is-equal '() (sys:get_state 'cluster)))
 (defun remote_api (set-up-result)
-  "This is the eunit 'Instantiator' ."
+  "Return a lists for remote api tests"
   `(
      ,(tuple "global option" #'global-opt/0)
      ,(tuple "auto send api on init" #'auto-send/0)

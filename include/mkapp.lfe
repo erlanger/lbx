@@ -215,10 +215,12 @@
 
 (defmacro genserver args
   "(genserver <srvname> <api> [opts] [rst])
+   The arguments in brackets are optional.
    <srvname> is a symbol. the server name
-   <api> is a list of call,cast,cast-match,call-match,trigger, trigger-all and maybe one state-match
+   <api> is a list of call,cast,cast-match,call-match,trigger,
+         trigger-all,init and maybe one state-match
    <opts> list of global|local|gproc|#(gproc <gprockey>)
-          and/or print,trigger_debug,#(api-module <modname>)
+          and/or print,trigger_debug,#(api-module <modname>),noreg,multi,no_send_api
    <rst> optional. Additional function definitions"
       (let* ([(list srvname api opts rst) (mk-four args)]
              (r   (genserver-aux__ srvname api opts rst)))

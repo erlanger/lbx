@@ -57,7 +57,7 @@
    ;     {mod,          {mod, Application, []},
    ;     {start_phases, Phases},
    ;     {runtime_dependencies, RTDeps}]}."
-  (defun mk-app-file-unused (appname-str topsup)
+  (defun mk-app-file (appname-str topsup)
     (-> "{application, Application,
          [{description,  \"Description\"},
           {id,           \"Id\"},
@@ -133,7 +133,7 @@
   (defun mk-child (type name spec)
     (if (lists:member 'start spec)
      ;;start key already present
-     `(map 'type ',type 'id ,name ,@(quote-list spec))
+     `(map 'type ',type 'id ',name ,@(quote-list spec))
      ;;build start key
      `(map 'type ',type 'id ',name
         'start ,(tuple name 'start_link ())
@@ -161,11 +161,11 @@
   ;;Make supervisor modules for children supervisors
   (defun mk-children (children opts0)
     `,(-> (lists:foldl (match-lambda
-                 ;;worker child does not generate modules
+                 ;;worker child does not generate supervisor modules
                  ([(cons 'worker rest) acc]
                    acc)
 
-                 ;;supervisor child without child spec - generate module
+                 ;;supervisor child without child spec - generate supervisor module
                  ([(list 'supervisor name children supconfig opts) acc]
                   (when (is_atom name))
                    (cons

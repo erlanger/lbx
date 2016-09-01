@@ -8,9 +8,9 @@
              (supervisor mysup1)
              (supervisor (mysup2 intensity 15 period 70)
                ((worker wrk2a start
-                 #(wrk2 start_link (#(local named-ba) bucket-a)))  ;same type of worker
+                 #(wrk2 start_link (#(via btune named-ba) bucket-a)))  ;same type of worker
                 (worker wrk2b start
-                 #(wrk2 start_link (#(local named-bb) bucket-b))))) ;same type of worker
+                 #(wrk2 start_link (#(via btune named-bb) bucket-b))))) ;same type of worker
              (supervisor mysup3
                ((worker wrk31)
                 (worker wrk32))))
@@ -48,7 +48,10 @@
 (include-lib "ltest/include/ltest-macros.lfe")
 
 (defun app-set-up ()
-  (is-match (tuple 'ok _) (application:ensure_all_started 'myapp)))
+  (is-match (tuple 'ok _)
+    (progn
+      (application:start 'gproc)
+      (application:ensure_all_started 'myapp))))
 
 (defun app-tear-down (sres)
   (application:stop 'myapp))
@@ -60,10 +63,10 @@
   (is-equal "I am wrk32\n" (wrk32_api:who)))
 
 (defun multi_bucket_a (sres)
-  (is-equal 'bucket-a (wrk2_api:bucket 'named-ba)))
+  (is-equal 'bucket-a (wrk2_api:bucket #(via btune named-ba))))
 
 (defun multi_bucket_b (sres)
-  (is-equal 'bucket-b (wrk2_api:bucket 'named-bb)))
+  (is-equal 'bucket-b (wrk2_api:bucket #(via btune named-bb))))
 
 (defun restart_wrk32 (sres)
   (is-exit _ (wrk32_api:die))

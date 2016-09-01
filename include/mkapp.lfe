@@ -121,9 +121,7 @@
 (eval-when-compile
   ;;return list with all elements quotes
   (defun quote-list (lst)
-    (lists:map (lambda (e)
-                 `(quote ,e))
-               lst))
+    (lc ((<- e lst)) `(quote ,e)))
 
   ;;build strategy, intensity, period map
   (defun get-supconfig (supconfig)

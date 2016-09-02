@@ -1,6 +1,8 @@
 (include-lib "../include/lbx.lfe")
 (include-lib "../include/mkapp.lfe")
 
+;TODO: add test from spawn_trigger option
+
 ;An exmaple of a gen_server and its api generated bu mk-genserver
 ;This creates the info module and the info_api module
 (genserver info

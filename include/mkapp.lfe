@@ -281,29 +281,39 @@
 
   ;;make the necessary body code for the handle_* functions
   ;;including trigger code if necessary.
-  (defun get-body (apilst type apiname body)
+  (defun get-body (apilst type apiname body opts)
       (if (or (any-two 'trigger apiname apilst)
               (any 'trigger-all apilst))
-        (mk-trigger-code type apiname body)
+        (mk-trigger-code type apiname body opts)
         body))
 
   ;;make the trigger code, which spawns a process
   ;;which calls the run-triggers function at run-time
   ;;before returning from the handle_* function
   ;<body> is executed only once
-  (defun mk-trigger-code (type apiname body)
+  (defun mk-trigger-code (type apiname body opts)
     ;;execute body only once and store in variable
     `(let ((r-aux__ ,body))
-      ;;run trigger body in a separate process to prevent blocking
-      (spawn_link (lambda ()
-                   (run-triggers__
-                    (tuple
-                     ',type
-                     ,apiname
-                     State__
-                     (get-state-from-result ',type r-aux__)
-                     r-aux__
-                     request))))
+      ,(if (proplists:get_bool 'spawn_trigger opts)
+         ;;run trigger body in a separate process to prevent blocking
+         `(spawn_link (lambda ()
+                      (run-triggers__
+                       (tuple
+                        ',type
+                        ,apiname
+                        State__
+                        (get-state-from-result ',type r-aux__)
+                        r-aux__
+                        request))))
+         ;;run trigger body within handle_* function
+         `(run-triggers__
+            (tuple
+             ',type
+             ,apiname
+             State__
+             (get-state-from-result ',type r-aux__)
+             r-aux__
+             request)))
       ;;return the result from executing body
       r-aux__))
 
@@ -311,27 +321,27 @@
   (defun mk-hca-clause
     ;;match-state from 'state-match
     ;;api element (in the main genserver macro call)
-    ([(list call name args body) match-state api]
+    ([(list call name args body) match-state api opts]
       (when (is_list args) (or (== 'call call) (== 'callp call)))
       `([(= request (tuple ',name ,@args)) From ,match-state]
-           ,(get-body api 'call `',name body)))
+           ,(get-body api 'call `',name body opts)))
     ;;match-state from 'call element
-    ([(list 'call-match-1 name args match-state body) _ api] (when (is_list args))
+    ([(list 'call-match-1 name args match-state body) _ api opts] (when (is_list args))
       `([(= request (tuple ',name ,@args)) From (= State__ ,match-state)]
-           ,(get-body api 'call `',name body)))
+           ,(get-body api 'call `',name body opts)))
     ;;match-msg, match-from and match-state from 'call element
-    ([(list 'call-match-3 match-msg match-from match-state body) _ api]
+    ([(list 'call-match-3 match-msg match-from match-state body) _ api opts]
       `([(= request ,match-msg) ,match-from (= State__ ,match-state)]
-           ,(get-body api 'call `,match-msg body)))
+           ,(get-body api 'call `,match-msg body opts)))
     ;; Same but with docstrings
-    ([(list call name args doc body) match-state api]
+    ([(list call name args doc body) match-state api opts]
       (when (is_list args) (or (== 'call call) (== 'callp call)))
       `([(= request (tuple ',name ,@args)) From ,match-state]
-           ,(get-body api 'call `',name body)))
+           ,(get-body api 'call `',name body opts)))
     ;;match-state from 'call element
-    ([(list 'call-match-1 name args match-state doc body) _ api] (when (is_list args))
+    ([(list 'call-match-1 name args match-state doc body) _ api opts] (when (is_list args))
       `([(= request (tuple ',name ,@args)) From (= State__ ,match-state)]
-           ,(get-body api 'call `',name body))))
+           ,(get-body api 'call `',name body opts))))
 
   ;;Default clause for unkown call, return
   ;;#(reply #(badcall Request) State)
@@ -345,25 +355,25 @@
   (defun mk-hct-clause
     ;;match-state from 'state-match
     ;;api element (in the main genserver macro call)
-    ([(list cast name args body) match-state api]
+    ([(list cast name args body) match-state api opts]
       (when (is_list args) (or (== 'cast cast) (== 'castp cast)))
       `([(= request (tuple ',name ,@args)) ,match-state]
-           ,(get-body api 'cast `',name body)))
+           ,(get-body api 'cast `',name body opts)))
     ;;match-state from 'cast element
-    ([(list 'cast-match-1 name args match-state body) _ api] (when (is_list args))
+    ([(list 'cast-match-1 name args match-state body) _ api opts] (when (is_list args))
       `([(= request (tuple ',name ,@args)) ,match-state]
-           ,(get-body api 'cast `',name body)))
+           ,(get-body api 'cast `',name body opts)))
     ;;match-request and match-state from 'cast element
-    ([(list 'cast-match-2 match-request match-state body) _ api]
+    ([(list 'cast-match-2 match-request match-state body) _ api opts]
         (when (and (is_list args) (is_list match-state)))
       `([(= request ,match-request) ,match-state]
-           ,(get-body api 'cast `,match-request body)))
+           ,(get-body api 'cast `,match-request body opts)))
 
     ;;with doc-strings
-    ([(list cast name args doc body) match-state api]
+    ([(list cast name args doc body) match-state api opts]
       (when (is_list args) (or (== 'cast cast) (== 'castp cast)))
       `([(= request (tuple ',name ,@args)) ,match-state]
-           ,(get-body api 'cast `',name body)))
+           ,(get-body api 'cast `',name body opts)))
            )
 
   ;;Default clause for unkown cast
@@ -382,13 +392,13 @@
     ;;match-state from 'state-match
     ;;api element (in the main genserver macro call)
     ;;match-msg from 'info element
-    ([(list 'info msg body) match-state api]
+    ([(list 'info msg body) match-state api opts]
       `([(= request ,msg) ,match-state]
-           ,(get-body api 'info `,msg body)))
+           ,(get-body api 'info `,msg body opts)))
     ;;match-state from 'info element
-    ([(list 'infomatch match-msg match-state body) _ api]
+    ([(list 'infomatch match-msg match-state body) _ api opts]
       `([(= request ,match-msg) ,match-state]
-           ,(get-body api 'info `,match-msg body))))
+           ,(get-body api 'info `,match-msg body opts))))
 
   ;;Default clause for unkown info msg
   ;;return #(noreply State)
@@ -434,11 +444,11 @@
   ;; (defun handle_call
   ;;    (((tuple 'open door key) From State) (+ door key))
   ;;    (((tuple 'close door key) From State) (- door key)))
-  (defun mk-handle_calls (api)
+  (defun mk-handle_calls (api opts)
     (if (any '(call callp call-match-1 call-match-3) api)
       (list (cons 'defun (cons 'handle_call
         (++ (lists:map (lambda (e)
-                         (mk-hca-clause e (get-match-state-aux__ api) api))
+                         (mk-hca-clause e (get-match-state-aux__ api) api opts))
                        (filter-on-1st '(call-match-3 call-match-1 call callp) api))
             (list (mk-hca-def-clause))))))
       (list (cons 'defun (cons 'handle_call
@@ -446,11 +456,11 @@
       ))
 
   ;; produce all necessary handle_cast functions, e.g.:
-  (defun mk-handle_casts (srvname lst)
-    (if (any '(cast castp cast-match-1) lst)
+  (defun mk-handle_casts (srvname api opts)
+    (if (any '(cast castp cast-match-1) api)
       (list (cons 'defun (cons 'handle_cast
         (++ (lists:map (lambda (e)
-                         (mk-hct-clause e (get-match-state-aux__ api) api))
+                         (mk-hct-clause e (get-match-state-aux__ api) api opts))
                        (filter-on-1st '(cast-match-1 cast castp) api))
             (list (mk-hct-def-clause srvname))))))
       (list (cons 'defun (cons 'handle_cast
@@ -458,12 +468,12 @@
       ))
 
   ;; produce all necessary handle_info functions, e.g.:
-  (defun mk-handle_infos (srvname lst)
-    (if (any 'info lst)
+  (defun mk-handle_infos (srvname api opts)
+    (if (any 'info api)
       (list (cons 'defun (cons 'handle_info
         (++ (lists:map (lambda (e)
-                         (mk-hci-clause e (get-match-state-aux__ api) api))
-                       (filter-on-1st 'info lst))
+                         (mk-hci-clause e (get-match-state-aux__ api) api opts))
+                       (filter-on-1st 'info api))
             (mk-hci-nodeup-clause srvname opts)
             (mk-hci-nodedown-clause srvname opts)
             (list (mk-hci-def-clause srvname))
@@ -908,9 +918,9 @@
       ;;list
       (mk-init srvname api opts)
       (mk-terminate api)
-      (mk-handle_calls api)
-      (mk-handle_casts srvname api)
-      (mk-handle_infos srvname api)
+      (mk-handle_calls api opts)
+      (mk-handle_casts srvname api opts)
+      (mk-handle_infos srvname api opts)
 
       ;;User-defined functions, etc.
       rst

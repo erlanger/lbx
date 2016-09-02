@@ -230,17 +230,26 @@
 (eval-when-compile
   ;;Take elements from a list-of-lists if the first
   ;;item of the inner list matches <match>
-  (defun filter-on-1st (match lst)
-    (lists:filter (lambda (e)
-                    (== (hd e) match))
-                  lst))
+  (defun filter-on-1st
+    ((match lst) (when (is_atom match))
+      (lists:filter (lambda (e)
+                      (== (hd e) match))
+                    lst))
+    ((match lst) (when (is_list match))
+      (lists:append
+        (lc ((<- m match)) (filter-on-1st m lst)))))
 
   ;;return true if the first element inside a lists-of-lists
   ;;matches <match>
-  (defun any (match lst)
-    (lists:any (lambda (e)
-                 (== (hd e) match))
-               lst))
+  (defun any
+    ((match lst) (when (is_atom match))
+      (lists:any (lambda (e)
+                   (== (hd e) match))
+                 lst))
+    ((match lst) (when (is_list match))
+      (lists:any (lambda (e)
+                   (any  e lst))
+                 match)))
 
   ;;return true if the first element inside a lists-of-lists
   ;;matches <first> and the second element matches <second>
@@ -302,7 +311,8 @@
   (defun mk-hca-clause
     ;;match-state from 'state-match
     ;;api element (in the main genserver macro call)
-    ([(list 'call name args body) match-state api] (when (is_list args))
+    ([(list call name args body) match-state api]
+      (when (is_list args) (or (== 'call call) (== 'callp call)))
       `([(= request (tuple ',name ,@args)) From ,match-state]
            ,(get-body api 'call `',name body)))
     ;;match-state from 'call element
@@ -314,7 +324,8 @@
       `([(= request ,match-msg) ,match-from (= State__ ,match-state)]
            ,(get-body api 'call `,match-msg body)))
     ;; Same but with docstrings
-    ([(list 'call name args doc body) match-state api] (when (is_list args))
+    ([(list call name args doc body) match-state api]
+      (when (is_list args) (or (== 'call call) (== 'callp call)))
       `([(= request (tuple ',name ,@args)) From ,match-state]
            ,(get-body api 'call `',name body)))
     ;;match-state from 'call element
@@ -334,7 +345,8 @@
   (defun mk-hct-clause
     ;;match-state from 'state-match
     ;;api element (in the main genserver macro call)
-    ([(list 'cast name args body) match-state api] (when (is_list args))
+    ([(list cast name args body) match-state api]
+      (when (is_list args) (or (== 'cast cast) (== 'castp cast)))
       `([(= request (tuple ',name ,@args)) ,match-state]
            ,(get-body api 'cast `',name body)))
     ;;match-state from 'cast element
@@ -348,7 +360,8 @@
            ,(get-body api 'cast `,match-request body)))
 
     ;;with doc-strings
-    ([(list 'cast name args doc body) match-state api] (when (is_list args))
+    ([(list cast name args doc body) match-state api]
+      (when (is_list args) (or (== 'cast cast) (== 'castp cast)))
       `([(= request (tuple ',name ,@args)) ,match-state]
            ,(get-body api 'cast `',name body)))
            )
@@ -422,15 +435,11 @@
   ;;    (((tuple 'open door key) From State) (+ door key))
   ;;    (((tuple 'close door key) From State) (- door key)))
   (defun mk-handle_calls (api)
-    (if (or (any 'call api)
-            (or (any 'call-match-1 api)
-                (any 'call-match-3 api)))
+    (if (any '(call callp call-match-1 call-match-3) api)
       (list (cons 'defun (cons 'handle_call
         (++ (lists:map (lambda (e)
                          (mk-hca-clause e (get-match-state-aux__ api) api))
-                       (++ (filter-on-1st 'call-match-3 api)
-                           (filter-on-1st 'call-match-1 api)
-                           (filter-on-1st 'call api)))
+                       (filter-on-1st '(call-match-3 call-match-1 call callp) api))
             (list (mk-hca-def-clause))))))
       (list (cons 'defun (cons 'handle_call
         (list (mk-hca-def-clause)))))
@@ -438,13 +447,11 @@
 
   ;; produce all necessary handle_cast functions, e.g.:
   (defun mk-handle_casts (srvname lst)
-    (if (or (any 'cast lst)
-            (any 'cast-match-1 lst))
+    (if (any '(cast castp cast-match-1) lst)
       (list (cons 'defun (cons 'handle_cast
         (++ (lists:map (lambda (e)
                          (mk-hct-clause e (get-match-state-aux__ api) api))
-                       (++ (filter-on-1st 'cast-match-1 api)
-                           (filter-on-1st 'cast api)))
+                       (filter-on-1st '(cast-match-1 cast castp) api))
             (list (mk-hct-def-clause srvname))))))
       (list (cons 'defun (cons 'handle_cast
         (list (mk-hct-def-clause srvname)))))
@@ -470,8 +477,7 @@
   ;; make a call to spray_api only if it is defined
   (defun mk-spray_api-call (srvname api opts)
     (if (and (not (proplists:get_bool 'no_send_api opts))
-             (or (any 'call api)
-                 (any 'cast api)))
+             (any '(callp castp) api))
       `(: ,(get-api-modname srvname opts) spray_api)
       ())
   )
@@ -543,6 +549,10 @@
       '(srvr-ref__)
       ()))
 
+  ;;type of api entry point, used for gen_server:call/cast ...
+  (defun api-type (type)
+    (case type ('callp 'call) ('castp 'cast)))
+
   ;;produce clauses and body for the functions that
   ;;go into the separate api module
   (defun mk-api-clauses (srvname type name arity opts dict srvr-ref)
@@ -550,10 +560,10 @@
       (match-lambda
         ([(list type name args body) acc]
           (list (++ acc (list (++ (get-apifunc-extra-args api srvr-ref) args)
-            `(: gen_server ,type ,(get-reg-name srvname api opts srvr-ref) (tuple ',name ,@args))))))
+            `(: gen_server ,(api-type type) ,(get-reg-name srvname api opts srvr-ref) (tuple ',name ,@args))))))
         ([(list type name args doc body) acc]
           (cons doc (list (++ acc (list (++ (get-apifunc-extra-args api srvr-ref) args)
-            `(: gen_server ,type ,(get-reg-name srvname api opts srvr-ref) (tuple ',name ,@args))))))))
+            `(: gen_server ,(api-type type) ,(get-reg-name srvname api opts srvr-ref) (tuple ',name ,@args))))))))
       ()
       (orddict:fetch
         (tuple name arity)
@@ -769,8 +779,7 @@
                   `(((= (tuple type__ ,apiname-match ,prev-state-match ,new-state-match body-result__ call-args__) all))
                       (when ,guard)
                     (progn (print-if-trigger-debug__ all) ,trigger-body))))
-              (++ (filter-on-1st 'trigger-all api)
-                  (filter-on-1st 'trigger api)))
+              (filter-on-1st '(trigger-all trigger) api))
 
           (((=(tuple a b c d e f) all))
             ,(if (proplists:get_bool 'trigger_debug opts)
@@ -791,15 +800,13 @@
   ;;were specified (e.g. local, global, etc) or if the
   ;;local option is enabled by default.
   (defun mk-plain-apifuns? (api opts)
-    (and (or (any 'call api)
-             (any 'cast api))
+    (and (any '(callp castp) api)
          (has-reg opts)))
 
   ;;Api functions with user specified server reference are
   ;;made if the multi or noreg options were specified
   (defun mk-srvr-ref-apifuns? (api opts)
-    (and (or (any 'call api)
-             (any 'cast api))
+    (and (any '(callp castp) api)
          (not (has-reg opts))))
 
   (defun mk-export (api opts rst)
@@ -810,24 +817,16 @@
          ,@(++
              (if (mk-plain-apifuns? api opts)
                (lc ((<- (tuple name noargs)
-                        (++ (orddict:fetch_keys (grp-apicalls 'call api))
-                            (orddict:fetch_keys (grp-apicalls 'cast api)))))
+                        (++ (orddict:fetch_keys (grp-apicalls 'callp api))
+                            (orddict:fetch_keys (grp-apicalls 'castp api)))))
                  `(,name ,noargs))
                ())
              (if (mk-srvr-ref-apifuns? api opts)
                (lc ((<- (tuple name noargs)
-                    (++ (orddict:fetch_keys (grp-apicalls 'call api))
-                        (orddict:fetch_keys (grp-apicalls 'cast api)))))
+                    (++ (orddict:fetch_keys (grp-apicalls 'callp api))
+                        (orddict:fetch_keys (grp-apicalls 'castp api)))))
                  `(,name ,(+ 1 noargs)))
                ())))))
-
-        ;lists:map
-        ;  (match-lambda
-        ;   ([(tuple name noargs)]
-        ;    `(,name ,noargs)))
-        ;  (++ (orddict:fetch_keys (grp-apicalls 'call api))
-        ;      (orddict:fetch_keys (grp-apicalls 'cast api)))))
-        ;      ()))
 
   (defun mk-api-module (srvname api opts rst)
     (++
@@ -843,15 +842,15 @@
 
         ;;See mk-plain-apifuns? to learn when they are built
         (if (mk-plain-apifuns? api opts)
-          (++ (mk-apimod-funs srvname 'call api opts 'api-no-srvr-ref)
-              (mk-apimod-funs srvname 'cast api opts 'api-no-srvr-ref))
+          (++ (mk-apimod-funs srvname 'callp api opts 'api-no-srvr-ref)
+              (mk-apimod-funs srvname 'castp api opts 'api-no-srvr-ref))
           ())
 
         ;;api functions with user specified server reference
         ;;only if the init specification has arguments
         (if (mk-srvr-ref-apifuns? api opts)
-          (++ (mk-apimod-funs srvname 'call api opts 'srvr-ref)
-              (mk-apimod-funs srvname 'cast api opts 'srvr-ref))
+          (++ (mk-apimod-funs srvname 'callp api opts 'srvr-ref)
+              (mk-apimod-funs srvname 'castp api opts 'srvr-ref))
           ())
 
         ;;function to send api module to all connected nodes
@@ -869,8 +868,8 @@
   (defun genserver-aux__ (srvname api opts rst)
     (++ '(progn)
       ;;Produce api module only if there is any call or cast
-      (if (or (any 'call api)
-              (any 'cast api))
+      (if (or (mk-srvr-ref-apifuns? api opts)
+              (mk-plain-apifuns? api opts))
         (mk-api-module srvname api opts rst)
         ())
 

@@ -14,7 +14,7 @@
 
 (genserver multi_instance
   ((state-match (tuple bucket value))
-   (call store (val)
+   (callp store (val)
      `#(reply ok ,(tuple bucket val)))
    (init (server-bucket)
      `#(ok ,(tuple server-bucket 'undefined)))
@@ -22,7 +22,7 @@
   (print multi))
 
 (genserver noglobal
-  ((call store (val)
+  ((callp store (val)
      `#(reply ok ,val))
   ) ;end of api
   (print) ;local is enabled by default

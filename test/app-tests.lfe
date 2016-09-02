@@ -18,16 +18,16 @@
             (print))
 
 (genserver wrk31
-  ((call who () `#(reply "I am wrk31\n" ,(state))))
+  ((callp who () `#(reply "I am wrk31\n" ,(state))))
   (print global))
 
 (genserver wrk32
-  ((call who () `#(reply "I am wrk32\n" ,(state)))
-   (call die () `#(reply ,(error 'died) ,(state))))
+  ((callp who () `#(reply "I am wrk32\n" ,(state)))
+   (callp die () `#(reply ,(error 'died) ,(state))))
   (print local))
 
 (genserver wrk2
-  ((call bucket () `#(reply ,(state) ,(state)))
+  ((callp bucket () `#(reply ,(state) ,(state)))
    (init (bucket) `#(ok ,bucket)))
   (print multi))
 

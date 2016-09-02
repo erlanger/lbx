@@ -4,10 +4,10 @@
 ;An exmaple of a gen_server and its api generated bu mk-genserver
 ;This creates the info module and the info_api module
 (genserver cluster
-  ((call store (val)
+  ((callp store (val)
      `#(reply ,val ,val))
 
-   (cast cstore (val)
+   (castp cstore (val)
      `#(noreply ,val))
 
   ) ;end of api
@@ -15,7 +15,7 @@
 )
 
 (genserver nosend
-  ((cast store (val)
+  ((castp store (val)
      `#(noreply ,val))
 
   ) ;end of api

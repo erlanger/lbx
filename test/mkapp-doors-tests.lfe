@@ -5,16 +5,16 @@
 ;This creates the doors module and the doors_api module
 (genserver doors
   ((state-match (tuple roomstate roomkeys))
-  (call open (door)
+  (callp open (door)
    "Open the specified door, without a key."
     (open door () roomstate roomkeys (state)))
-  (call state (door) `#(reply ,(maps:get door roomstate) ,(state)))
-  (call open (door key) (open door key roomstate roomkeys (state)))
+  (callp state (door) `#(reply ,(maps:get door roomstate) ,(state)))
+  (callp open (door key) (open door key roomstate roomkeys (state)))
   (call-match-3 (tuple 'close door) pid 'one_closed
       `#(reply ok ,(upd-door (state) door 'closed)))
-  (call close (door)
+  (callp close (door)
       `#(reply ok ,(upd-door (state) door 'closed)))
-  (cast kick (door)
+  (castp kick (door)
    "Kicks the door setting its state to 'kicked. Sets timer for door
     to be repaired in 1 secs."
     (progn

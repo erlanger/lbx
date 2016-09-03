@@ -284,8 +284,8 @@
   (defun get-body (apilst type apiname body opts)
       (if (or (any-two 'trigger apiname apilst)
               (any 'trigger-all apilst))
-        (mk-trigger-code type apiname body opts)
-        body))
+        (macroexpand-all (mk-trigger-code type apiname body opts) $ENV)
+        (macroexpand-all body $ENV)))
 
   ;;make the trigger code, which spawns a process
   ;;which calls the run-triggers function at run-time
@@ -648,7 +648,7 @@
   ;;the state-match specification in the api description
   (defun get-match-state-aux__ (api)
     (if (any 'state-match api)
-      `(= State__ ,(lists:nth 2 (hd (filter-on-1st 'state-match api))))
+      `(= State__ ,(macroexpand-all (lists:nth 2 (hd (filter-on-1st 'state-match api))) $ENV))
       'State__))
 
   ;;Get api module name from #(api-module <name>) in opts or

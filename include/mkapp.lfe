@@ -220,7 +220,7 @@
    <opts> list of global|local|gproc|#(gproc <gprockey>)
           and/or print,trigger_debug,#(api-module <modname>),noreg,multi,no_send_api
    <rst> optional. Additional function definitions"
-      (let* ([(list srvname api opts rst) (mk-four args)]
+      (let* ([(list srvname api opts rst) (mk-four (macroexpand-all args $ENV))]
              (r   (genserver-aux__ srvname api opts rst)))
         (progn
           (if (proplists:get_bool 'print opts)

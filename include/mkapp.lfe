@@ -6,7 +6,7 @@
 (defmacro application
   "(application <name> <topsup> <opts>)
    (application <name> <topsup>)"
-  ([appname topsupervisor opts]
+  ([list appname topsupervisor opts]
     (let ([r (application-aux appname topsupervisor opts)])
      (progn
       (if (proplists:get_bool 'print opts)
@@ -14,7 +14,7 @@
       ;(mk-app-file (atom_to_list appname) topsupervisor)
       r)))
 
-   ([appname topsupervisor]
+   ([list appname topsupervisor]
      (application-aux appname topsupervisor ())))
 
 (eval-when-compile
@@ -110,7 +110,7 @@
 
   (case (mk-four args)
     ;;supname is an atom
-    ([supname children supconfig opts]
+    ([list supname children supconfig opts]
       (when (progn (is_list supconfig) (is_list children) (is_atom supname)))
         (let ([r (supervisor-aux supname children supconfig opts)])
          (progn

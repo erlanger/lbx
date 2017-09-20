@@ -117,7 +117,7 @@
 (defmacro tee>
   ([list x l]
     `(let* ((r ,x)
-           (r1 ,(subst 'r '% l)))
+           (r1 ,(cl:subst 'r '% l)))
       r)))
 
 ; Log the resul so far and return the result to be used in the rest
@@ -181,11 +181,11 @@
          (flst (lists:flatten lst)))
       (if (lists:member '@ flst)
         ;Substitute @ with arg, and nothing else
-        (subst r '@ lst)
+        (cl:subst r '@ lst)
         (if (lists:member '@+ flst)
           ;if there is a @+ (and no @) then substitute them with arg,
           ;AND add arg as the first argument also.
-          (subst r '@+ (cons r lst))
+          (cl:subst r '@+ (cons r lst))
           ;If there is no @ or @+ simply put arg as the first argument
           (cons  arg lst)))))
   ;Count number of 'sysms' in 'lst'

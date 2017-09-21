@@ -11,6 +11,10 @@ clean:
 test:
 	#@DEBUG=1 rebar3 as test clean,compile
 	@rebar3 as test clean,compile
+	#Build the file myapp.app because myapp is generated dynamically
+	DEPS_DIR=_build/test/lib/lbx/ebin; \
+	cp "$$DEPS_DIR/lbx.app" "$$DEPS_DIR/myapp.app"; \
+	sed -i -e 's/lbx/myapp/g' -e '4 a\ {mod,{myapp,[]}},' "$$DEPS_DIR/myapp.app"
 	@erl -pa _build/test/lib/**/ebin -cwd "`pwd`" -eval \
 		"case 'ltest-runner':all() of ok -> halt(0); _ -> halt(127) end" \
 		-noshell

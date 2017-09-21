@@ -19,3 +19,8 @@ eunit:
 	#We have do do clean b/c lfe-compile plugin doesn't recognize include file change
 	@rebar3 as test do clean,eunit
 	@#rebar3 as test eunit --cover
+
+doc:
+	@echo lodox documentation generation is not working at the moment
+	@rebar3 as doc  do compile,lfe lodox
+

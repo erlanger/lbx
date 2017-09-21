@@ -50,6 +50,8 @@
   (progn
     (ets:new 'clusterdb '(public named_table))
     ;Start networking and slave node
+    (os:cmd "epmd -daemon")
+    (? 100 'ok) ;wait for epmd
     (net_kernel:start `(,(local-node)))
     (slave:start_link (lbx:getifaddr)
                       "ctest1"

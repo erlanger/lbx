@@ -16,3 +16,5 @@ rebar3.crashdump
 .deps_plt
 .eunit
 .swp
+examples
+rebar.lock
